@@ -1,0 +1,33 @@
+object data_module: Tdata_module
+  OldCreateOrder = False
+  Height = 246
+  HorizontalOffset = 259
+  VerticalOffset = 129
+  Width = 364
+  PPI = 96
+  object query: TSQLQuery
+    FieldDefs = <>
+    Database = sqlite
+    Transaction = transaction
+    Params = <>
+    left = 65
+    top = 40
+  end
+  object transaction: TSQLTransaction
+    Active = False
+    Database = sqlite
+    left = 192
+    top = 48
+  end
+  object sqlite: TSQLite3Connection
+    Connected = False
+    LoginPrompt = False
+    AfterConnect = sqliteAfterConnect
+    KeepConnection = False
+    Transaction = transaction
+    CharSet = 'UTF-8'
+    LogEvents = [detCustom, detCommit, detRollBack, detParamValue, detActualSQL]
+    left = 116
+    top = 106
+  end
+end
