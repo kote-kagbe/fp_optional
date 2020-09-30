@@ -8,10 +8,11 @@
       <Version Value="11"/>
       <PathDelim Value="\"/>
       <SearchPaths>
+        <OtherUnitFiles Value="..\optional"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
-    <Files Count="5">
+    <Files Count="7">
       <Item1>
         <Filename Value="data_module_unit.pas"/>
         <UnitName Value="data_module_unit"/>
@@ -33,6 +34,14 @@
         <Filename Value="sqlite_manager.lrs"/>
         <Type Value="LRS"/>
       </Item5>
+      <Item6>
+        <Filename Value="..\optional\optional.pas"/>
+        <UnitName Value="optional"/>
+      </Item6>
+      <Item7>
+        <Filename Value="sqlite_manager_helpers.pas"/>
+        <UnitName Value="sqlite_manager_helpers"/>
+      </Item7>
     </Files>
     <RequiredPkgs Count="2">
       <Item1>

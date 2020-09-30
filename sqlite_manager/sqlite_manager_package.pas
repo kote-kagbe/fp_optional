@@ -8,16 +8,16 @@ unit sqlite_manager_package;
 interface
 
 uses
-        data_module_unit, sqlite_manager, database_converter_unit, 
-        blob_manager_unit, LazarusPackageIntf;
+    data_module_unit, sqlite_manager, database_converter_unit, 
+    blob_manager_unit, optional, sqlite_manager_helpers, LazarusPackageIntf;
 
 implementation
 
 procedure Register;
 begin
-  RegisterUnit( 'sqlite_manager', @sqlite_manager.Register) ;
+  RegisterUnit ( 'sqlite_manager', @sqlite_manager.Register ) ;
 end ;
 
 initialization
-  RegisterPackage( 'sqlite_manager_package', @Register) ;
+  RegisterPackage ( 'sqlite_manager_package', @Register ) ;
 end .

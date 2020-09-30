@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, sqldb, data_module_unit, blob_manager_unit, LResources,
-  Dialogs, Forms, FileUtil, Controls, strutils, db, dateutils;
+  Dialogs, Forms, FileUtil, Controls, strutils, db, dateutils, optional, Variants;
 
 type
 
@@ -62,6 +62,8 @@ type
     function FieldAsDouble( const field: string ): double;
     function FieldIsNull( const field: string ): boolean;
     function FieldAsDateTime( const field: string ): TDateTime;
+    //the next func is in sqlite_manager_helpers, sorry
+    //generic function FieldAsOptional<T>( const field: string ): specialize tOptional<T>;
 
     procedure ReadBlob( const id: word; const strm: tStream );
     function WriteBlob( const strm: tStream; const id: word = 0; use_transaction: boolean = true ): word;
@@ -407,6 +409,19 @@ begin
         raise Exception.Create( 'Query is closed' );
     result := JulianDateToDateTime( data_module.query.FieldByName( field ).AsFloat );
 end ;
+
+{generic function tSQLiteManager.FieldAsOptional<T>( const field: string ): specialize tOptional<T>;
+var
+    value: Variant;
+begin
+    if not data_module.sqlite.Connected then
+        raise Exception.Create( 'Database is not connected' );
+    if not data_module.query.Active then
+        raise Exception.Create( 'Query is closed' );
+    value := data_module.query.FieldByName( field ).AsVariant;
+    if not( VarIsClear( Value ) or VarIsEmpty( Value ) or VarIsNull( Value ) or ( VarCompareValue( Value, Unassigned ) = vrEqual ) ) then
+        result := T( value );
+end ;}
 
 procedure tSQLiteManager.ReadBlob( const id: word; const strm: tStream) ;
 begin
