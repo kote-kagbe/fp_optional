@@ -1,3 +1,9 @@
+(*
+* Efimov V.P.
+* kote.kagbe@gmail.com
+* 2020
+*)
+
 unit ya_updater;
 
 {$mode objfpc}{$H+}

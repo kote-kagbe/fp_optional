@@ -1,3 +1,9 @@
+(*
+* Efimov V.P.
+* kote.kagbe@gmail.com
+* 2020
+*)
+
 unit data_module_unit;
 
 {$mode objfpc}{$H+}

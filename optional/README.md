@@ -1,4 +1,4 @@
-# fp_optional
+# free pascal optional
 ================================Synopsis================================
 
     Optional type for Free Pascal Compiler

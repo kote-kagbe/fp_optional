@@ -1,3 +1,9 @@
+(*
+* Efimov V.P.
+* kote.kagbe@gmail.com
+* 2020
+*)
+
 unit scope_container;
 
 {$mode objfpc}{$H+}  
@@ -18,7 +24,9 @@ type
         class operator initialize( var instance: tScopeContainer ); inline;
         class operator finalize( var instance: tScopeContainer ); inline;
     public
+        // returns the stored object
         function get: T; inline;
+        // frees the stored object
         procedure reset; inline;
 
         class operator := ( const value: T ): tScopeContainer; inline;

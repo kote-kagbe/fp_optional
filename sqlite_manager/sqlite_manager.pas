@@ -1,3 +1,9 @@
+(*
+* Efimov V.P.
+* kote.kagbe@gmail.com
+* 2020
+*)
+
 unit sqlite_manager;
 
 {$mode objfpc}{$H+}
