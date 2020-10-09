@@ -68,10 +68,16 @@ type
         // operators for easy use
         // assignment
         class operator := ( const value: T ): tOptional; inline;
+        // is (not)set check
         // if opt_var then ...
         class operator := ( const instance: tOptional ): boolean; inline;
         // if not opt_var then ...
         class operator not ( const instance: tOptional ): boolean; inline;
+        // comparison
+        // if opt1 = opt2 then ...
+        class operator = ( const inst1, inst2: tOptional ): boolean; inline;
+        // if opt = val then ...
+        class operator = ( const instance: tOptional; const value: T ): boolean; inline;
     end;
 
     // some basic types ready
@@ -118,6 +124,16 @@ end;
 class operator tOptional. not ( const instance: tOptional ): boolean;
 begin
     result := not instance._data._isSet;
+end;
+
+class operator tOptional. = ( const inst1, inst2: tOptional ): boolean;
+begin
+    result := boolean( inst1 ) and boolean( inst2 ) and ( inst1.get = inst2.get );
+end;
+
+class operator tOptional. = ( const instance: tOptional; const value: T ): boolean;
+begin
+    result := boolean( instance ) and ( instance.get = value )
 end;
 
 function tOptional.Get: T;
