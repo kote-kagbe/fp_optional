@@ -11,7 +11,9 @@ unit http_updater;
 interface
 
 uses
-    Classes, SysUtils, base_updater, httpsend, ssl_openssl, math;
+    Classes, SysUtils, base_updater, math,
+	httpsend in '../synapse40/source/lib/httpsend.pas',
+	ssl_openssl in '../synapse40/source/lib/ssl_openssl.pas';
 
 type
 
