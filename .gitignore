@@ -24,6 +24,7 @@
 backup/
 *.bak
 lib/
+!synapse40/source/*
 
 # Application bundle for Mac OS
 *.app/
