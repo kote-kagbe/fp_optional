@@ -11,7 +11,7 @@ unit sqlite_manager_helpers;
 interface
 
 uses
-    SysUtils, sqlite_manager, optional, data_module_unit;
+    SysUtils, sqlite_manager, optional in '../optional/optional.pas', data_module_unit;
 
 type
 

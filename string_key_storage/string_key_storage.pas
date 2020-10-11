@@ -1,4 +1,4 @@
-unit sequence_key_storage;
+unit string_key_storage;
 
 {$mode objfpc}{$H+}
 {$modeswitch advancedrecords}
@@ -6,9 +6,12 @@ unit sequence_key_storage;
 interface
 
 uses
-    Classes, SysUtils, optional in '../git/fp_toolbox/optional/optional.pas';
+    Classes, SysUtils, optional, syncobjs;
 
 type
+
+    { tSKSNodeRec }
+
     generic tSKSNodeRec<ValueType> = record
     private
         _key: specialize tOptional<char>;
@@ -16,13 +19,32 @@ type
         _key_count: word;
         _next: ^specialize tSKSNodeRec<ValueType>;
         _sibling: ^specialize tSKSNodeRec<ValueType>;
+        _ref_count: byte;
+        _locker: TCriticalSection;
 
-        class operator initialize( var instance: tSKSNodeRec );
+        class operator initialize( var instance: tSKSNodeRec ); inline;
+        class operator finalize( var instance: tSKSNodeRec ); inline;
     public
         constructor Init( const key: char );
     end;
 
+    { tItemLocker }
+
+    generic tItemLocker<ValueType> = record
+    type
+        _tSKSNodeRec = specialize tSKSNodeRec<ValueType>;
+        _pSKSNodeRec = ^_tSKSNodeRec;
+    private
+        _value: _pSKSNodeRec;
+        class operator initialize( var instance: tItemLocker ); inline;
+        class operator finalize( var instance: tItemLocker ); inline;
+    public
+        class operator := ( const value: _pSKSNodeRec ): tItemLocker; inline;
+    end;
+
     generic tOnReleaseNode<ValueType> = procedure( const value: ValueType ) of object;
+
+    { tStringKeyStorage }
 
     generic tStringKeyStorage<ValueType> = class
     type
@@ -35,12 +57,14 @@ type
         _onReleaseNode: _tOnReleaseNode;
 
         procedure releaseNode( const node: _tSKSNodeRec ); virtual;
-
+        function Get( const key: string ): _pSKSNodeRec; overload;
+        function Get( const node: _pSKSNodeRec; out value: ValueType ): boolean; overload;
     public
         constructor Create;
 
         procedure Add( const key: string; const value: ValueType );
-        function Get( const key: string; out value: specialize tOptional<ValueType> ): boolean;
+        function Get( const key: string; out value: ValueType ): boolean; overload;
+        function Get( const key: string; out value: ValueType; var locker: specialize tItemLocker<ValueType> ): boolean; overload;
         //procedure Remove( const key: string );
 
         procedure list( const key: string );
@@ -55,12 +79,50 @@ type
 
 implementation
 
+{ tItemLocker }
+
+class operator tItemLocker.initialize ( var instance: specialize tItemLocker<ValueType> ) ;
+begin
+    instance._value := default( _pSKSNodeRec );
+end ;
+
+class operator tItemLocker.finalize ( var instance: tItemLocker ) ;
+begin
+    if instance._value <> nil then
+        begin
+            instance._value^._locker.Acquire;
+            instance._value^._ref_count -= 1;
+            if( instance._value^._ref_count = 0 )and( not instance._value^._key ) then
+                dispose( instance._value )
+            else
+                instance._value^._locker.Release;
+        end ;
+end ;
+
+class operator tItemLocker. := ( const value: _pSKSNodeRec ) : tItemLocker;
+begin
+    if value = nil then
+        exit;
+    value^._locker.Acquire;
+    result._value := value;
+    result._value^._ref_count += 1;
+    result._value^._locker.Release;
+end ;
+
 class operator tSKSNodeRec.initialize( var instance: tSKSNodeRec );
 begin
     instance._key_count := 0;
     instance._next := nil;
     instance._sibling := nil;
+    instance._value := default( ValueType );
+    instance._ref_count := 0;
+    instance._locker := TCriticalSection.Create;
 end;
+
+class operator tSKSNodeRec.finalize ( var instance: tSKSNodeRec ) ;
+begin
+    instance._locker.Free;
+end ;
 
 constructor tSKSNodeRec.Init( const key: char );
 begin
@@ -213,13 +275,13 @@ begin
     current_node^._value := value;
 end;
 
-function tStringKeyStorage.Get( const key: string; out value: specialize tOptional<ValueType> ): boolean;
+function tStringKeyStorage.Get ( const key: string ) : _pSKSNodeRec;
 var
     current_node: _pSKSNodeRec;
     id: char;
     l, n: word;
 begin
-    value.reset;
+    result := nil;
     l := length( key );
     writeln( 'key length ', l );
     n := 0;
@@ -268,13 +330,34 @@ begin
     if ( current_node <> nil )and( boolean( current_node^._value ) ) then
         begin
             writeln( id, n, ' value found' );
-            value := current_node^._value;
+            result := current_node;
         end
     else
         writeln( id, n, ' value NOT found' );
+end ;
 
-    result := value;
+function tStringKeyStorage.Get ( const node: _pSKSNodeRec; out value: ValueType ) : boolean;
+begin
+    value := default( ValueType );
+    result := node <> nil;
+    if result then
+        value := node^._value;
+end ;
+
+function tStringKeyStorage.Get( const key: string; out value: ValueType ): boolean;
+begin
+    result := Get( Get( key ), value );
 end;
+
+function tStringKeyStorage.Get( const key: string; out value: ValueType; var locker: specialize tItemLocker<ValueType> ): boolean;
+var
+    node: _pSKSNodeRec;
+begin
+    node := Get( key );
+    result := Get( node, value );
+    if result then
+        locker := node;
+end ;
 
 {procedure tStringKeyStorage.Remove( const key: _KeyType );
 begin

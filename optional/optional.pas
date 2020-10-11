@@ -78,6 +78,7 @@ type
         class operator = ( const inst1, inst2: tOptional ): boolean; inline;
         // if opt = val then ...
         class operator = ( const instance: tOptional; const value: T ): boolean; inline;
+        class operator = ( const value: T; const instance: tOptional ): boolean; inline;
     end;
 
     // some basic types ready
@@ -132,6 +133,11 @@ begin
 end;
 
 class operator tOptional. = ( const instance: tOptional; const value: T ): boolean;
+begin
+    result := boolean( instance ) and ( instance.get = value )
+end;
+
+class operator tOptional. = ( const value: T; const instance: tOptional ): boolean;
 begin
     result := boolean( instance ) and ( instance.get = value )
 end;
