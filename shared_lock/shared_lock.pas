@@ -6,22 +6,17 @@ unit shared_lock;
 interface
 
 uses
-    Classes, SysUtils, syncobjs, optional;
+    Classes, SysUtils, syncobjs;
 
 type
-    tWriteID = specialize tOptional<longint>;
 
     { tSharedLock }
 
     tSharedLock = class
-    strict private
-        _write_id: tWriteID;
     private
         _lock: TCriticalSection;
         _counter: integer;
 
-        function get_write_id: tWriteID;
-        procedure reset_write_id;
     public
         constructor Create;
         destructor Destroy; override;
@@ -32,11 +27,13 @@ type
     tWriteLock = record
     private
         _lock: tSharedLock;
-        _id: tWriteID;
-    public
-        function Acquire( var lock: tSharedLock ): tWriteID;
-        procedure Release;
+        _locked: boolean;
+
+        class operator initialize( var instance: tWriteLock ); inline;
         class operator finalize( var instance: tWriteLock ); inline;
+    public
+        procedure Acquire( var lock: tSharedLock );
+        procedure Release;
     end;
 
     { tReadLock }
@@ -44,54 +41,51 @@ type
     tReadLock = record
     private
         _lock: tSharedLock;
-    public
-        procedure Acquire( var lock: tSharedLock; const id: tWriteID ); overload;
-        procedure Acquire( var lock: tSharedLock ); overload;
-        procedure Release;
+        _locked: boolean;
 
+        class operator initialize( var instance: tReadLock ); inline;
         class operator finalize( var instance: tReadLock ); inline;
+    public
+        procedure Acquire( var lock: tSharedLock );
+        procedure Release;
     end ;
 
 implementation
 
 { tWriteLock }
 
-function tWriteLock.Acquire ( var lock: tSharedLock ) : tWriteID;
-var
-    locked: boolean;
+class operator tWriteLock.initialize ( var instance: tWriteLock ) ;
 begin
+    instance._lock := nil;
+    instance._locked := false;
+end ;
+
+procedure tWriteLock.Acquire ( var lock: tSharedLock );
+begin
+    if _locked then
+        exit;
     _lock := lock;
-    locked := false;
     repeat
         _lock._lock.Acquire;
-        locked := _lock._counter = 0;
-        if not locked then
+        _locked := _lock._counter = 0;
+        if not _locked then
             _lock._lock.Release;
-    until locked;
-    _id := _lock.get_write_id;
-    result := _id;
+    until _locked;
     _lock._counter := -1;
     _lock._lock.Release;
 end ;
 
 procedure tWriteLock.Release;
-var
-    locked: boolean;
 begin
     if _lock = nil then
         exit;
-    locked := false;
-    repeat
-        _lock._lock.Acquire;
-        locked := ( _lock._counter = -1 )and( _lock.get_write_id = _id );
-        if not locked then
-            _lock._lock.Release;
-    until locked;
-    _lock.reset_write_id;
+    if not _locked then
+        exit;
+    _lock._lock.Acquire;
+    _locked := false;
     _lock._counter := 0;
-    _lock := nil;
-    _id.Reset;
     _lock._lock.Release;
+    _lock := nil;
 end ;
 
 class operator tWriteLock.finalize ( var instance: tWriteLock ) ;
@@ -102,45 +96,40 @@ end ;
 
 { tReadLock }
 
-procedure tReadLock.Acquire ( var lock: tSharedLock; const id: tWriteID ) ;
-var
-    locked: boolean;
+class operator tReadLock.initialize ( var instance: tReadLock ) ;
 begin
+    instance._lock := nil;
+    instance._locked := false;
+end ;
+
+procedure tReadLock.Acquire ( var lock: tSharedLock ) ;
+begin
+    if _lock <> nil then
+        exit;
+    if _locked then
+        exit;
     _lock := lock;
-    locked := false;
     repeat
         _lock._lock.Acquire;
-        locked := ( _lock._counter >= 0 )or( _lock.get_write_id = id );
-        if not locked then
+        _locked := ( _lock._counter >= 0 );
+        if not _locked then
             _lock._lock.Release;
-    until locked;
+    until _locked;
     _lock._counter += 1;
     _lock._lock.Release;
 end ;
 
-procedure tReadLock.Acquire ( var lock: tSharedLock ) ;
-var
-    tmp: tWriteID;
-begin
-    Acquire( lock, tmp );
-end ;
-
 procedure tReadLock.Release;
-var
-    locked: boolean;
 begin
     if _lock = nil then
         exit;
-    locked := false;
-    repeat
-        _lock._lock.Acquire;
-        locked := _lock._counter > 0;
-        if not locked then
-            _lock._lock.Release;
-    until locked;
+    if not _locked then
+        exit;
+    _lock._lock.Acquire;
+    _locked := false;
     _lock._counter -= 1;
-    _lock := nil;
     _lock._lock.Release;
+    _lock := nil;
 end ;
 
 class operator tReadLock.finalize ( var instance: tReadLock ) ;
@@ -150,18 +139,6 @@ begin
 end ;
 
 { tSharedLock }
-
-function tSharedLock.get_write_id: tWriteID;
-begin
-    if not _write_id then
-        _write_id := random( high( longint ) );
-    result := _write_id;
-end ;
-
-procedure tSharedLock.reset_write_id;
-begin
-    _write_id.Reset;
-end ;
 
 constructor tSharedLock.Create;
 begin
