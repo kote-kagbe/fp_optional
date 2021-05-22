@@ -9,7 +9,7 @@ interface
 
 uses
     data_module_unit, sqlite_manager, database_converter_unit, 
-    blob_manager_unit, optional, sqlite_manager_helpers, LazarusPackageIntf;
+    blob_manager_unit, sqlite_manager_helpers, LazarusPackageIntf;
 
 implementation
 

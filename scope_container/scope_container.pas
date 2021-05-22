@@ -28,8 +28,9 @@ type
         function get: T; inline;
         // frees the stored object
         procedure reset; inline;
+        procedure assign( const value: T );
 
-        class operator := ( const value: T ): tScopeContainer; inline;
+        // class operator := ( const value: T ): tScopeContainer; inline;
         class operator := ( const instance: tScopeContainer ): boolean; inline;
         class operator not ( const instance: tScopeContainer ): boolean; inline;
     end ;
@@ -62,11 +63,17 @@ begin
     end ;
 end ;
 
-class operator tScopeContainer. := ( const value: T ) : tScopeContainer;
+procedure tScopeContainer.assign( const value: T );
 begin
-    result.reset;
-    result._obj := value;
+    reset;
+    _obj := value;
 end ;
+
+// class operator tScopeContainer. := ( const value: T ) : tScopeContainer;
+// begin
+//     result.reset;
+//     result._obj := value;
+// end ;
 
 class operator tScopeContainer. := ( const instance: tScopeContainer ) : boolean;
 begin
