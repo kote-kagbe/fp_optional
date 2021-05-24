@@ -1,5 +1,13 @@
 unit base_updater;
 
+(*
+syntax notes
+- class variables start with _
+- service methods like logging etc. start and end with __
+- constants are in upper case
+- outer macroses start and end with __, inner macroses start and end with _
+*)
+
 {$mode objfpc}{$H+}
 {$modeswitch advancedrecords}
 {$macro on}
@@ -72,23 +80,23 @@ type
     private
         _aborted: boolean;
         _id: string; // id for each instance
+        // options for current updater
+        _options: tUpdaterOptions;
 
         // fill entire _map
         function FillMap: boolean;
         procedure FetchStorageFilesInfo;
     protected
-        // options for current updater
-        _options: tUpdaterOptions;
         // merged list of files hashes <rel_path, tFileRecord>
         _map: tFileList;
 
-        // fills _map with remote data: _options.source -> _map[, _map.remote_path]
+        // fills _map with remote data: options.source -> _map[, _map.remote_path]
         function FetchRemoteFilesInfo: boolean; virtual; abstract;
-        // fills _map with local data: _options.destination -> _map
+        // fills _map with local data: options.destination -> _map
         function FetchLocalFilesInfo: boolean; virtual;
-        // fetches single remote file to local machine: _options.source -> _options.storage
+        // fetches single remote file to local machine: options.source -> options.storage
         function FetchFile( const path: string; const strm: tStream ): boolean; virtual; abstract;
-        // replaces single local file with updated one: _options.storage -> _options.destination
+        // replaces single local file with updated one: options.storage -> options.destination
         function ApplyFile( const path: string; const source, destination: tStream ): boolean; virtual;
 
         // service methods
@@ -100,8 +108,9 @@ type
 
         property aborted: boolean read _aborted;
         property instance_id: string read _id;
+        property options: tUpdaterOptions read _options;
     public
-        constructor Create( const options: tUpdaterOptions ); virtual; 
+        constructor Create( const updater_options: tUpdaterOptions ); virtual; 
         destructor Destroy; override;
 
         function CheckUpdates: tCheckResult;
@@ -203,15 +212,15 @@ begin
     result := (not self.remote_hash.IsEmpty)and( not self.storage_hash.IsEmpty )and( self.remote_hash = self.storage_hash )
 end;
 
-constructor tBaseUpdater.Create( const options: tUpdaterOptions );
+constructor tBaseUpdater.Create( const updater_options: tUpdaterOptions );
 begin
-    _options := options;
-    _options.Prepare;
+    _options := updater_options;
+    options.Prepare;
     _map := tFileList.Create;
     _map.Duplicates := dupIgnore;
     _aborted := false;
     _id := inttostr(random(high(longint)));
-    __log__( 'options' + _options.Summary );
+    __log__( 'options' + options.Summary );
 end;
 
 destructor tBaseUpdater.Destroy;
@@ -230,11 +239,11 @@ var
 begin
     try
         __log__( path + ': applying' );
-        if assigned( _options.custom_file_processor ) then
+        if assigned( options.custom_file_processor ) then
             begin
                 __log__( path + ': running custom file processing' );
                 __report__( path, usUPDATING, -1 );
-                result := _options.custom_file_processor( path, source );
+                result := options.custom_file_processor( path, source );
             end;
         if not result then
             begin
@@ -254,7 +263,7 @@ begin
                 __log__( path + ': applyed' );
             end;
     finally
-        __report__( _options.destination, tUpdateStatus.usIDLE, -1 );
+        __report__( options.destination, tUpdateStatus.usIDLE, -1 );
     end;
 end;
 
@@ -290,9 +299,9 @@ function tBaseUpdater.CleanUp: boolean;
     end;
 
 begin
-    __log__( _options.destination + ': starting cleanup' );
-    result := clean_up( _options.destination, '*'+OLD_FILE_EXT );
-    result := clean_up( _options.storage, '*' ) and result;
+    __log__( options.destination + ': starting cleanup' );
+    result := clean_up( options.destination, '*'+OLD_FILE_EXT );
+    result := clean_up( options.storage, '*' ) and result;
 end;
 
 function tBaseUpdater.CheckUpdates: tCheckResult;
@@ -315,7 +324,7 @@ var
     strm: specialize tScopeContainer<tFileStream>;
 begin
     try 
-        __log__( _options.destination + ': fetching updates' );
+        __log__( options.destination + ': fetching updates' );
         if( _map.count = 0 )and(( not FillMap )or( _map.count = 0 ))then
             exit( frERROR );
         result := frOK;
@@ -329,8 +338,8 @@ begin
                                 __LOG_MESSAGE_ _map.keys[n] + ': found at storage, skipping' _AND_CONTINUE__
                             if _map.data[n].Removed then
                                 __LOG_MESSAGE_ _map.keys[n] + ': marked for removal, skipping' _AND_CONTINUE__
-                            __log__( _map.keys[n] + ': opening storage stream at ' + _options.storage + _map.keys[n] );
-                            strm.assign( tFileStream.Create( _options.storage + _map.keys[n], fmCreate ) );
+                            __log__( _map.keys[n] + ': opening storage stream at ' + options.storage + _map.keys[n] );
+                            strm.assign( tFileStream.Create( options.storage + _map.keys[n], fmCreate ) );
                             __log__( _map.keys[n] + ': fetching file' );
                             if not FetchFile( _map.keys[n], strm.get ) then
                                 begin
@@ -348,7 +357,7 @@ begin
             end;
         end;
     finally
-        __report__( _options.destination, tUpdateStatus.usIDLE, -1 );
+        __report__( options.destination, tUpdateStatus.usIDLE, -1 );
     end;
 end;
 
@@ -364,13 +373,13 @@ begin
         if not CleanUp then
             exit( arERROR ); 
         result := arOK;
-        if not _options.distribution.IsEmpty then
+        if not options.distribution.IsEmpty then
             begin
-                __log__( _options.distribution + ': processing distribution' );
+                __log__( options.distribution + ': processing distribution' );
                 try
-                    __log__( _options.distribution + ': opening distribution' );
-                    source.assign( tFileStream.Create( _options.storage + _options.distribution, fmOpenRead ) );
-                    if not _options.custom_file_processor( _options.distribution, source.get ) then
+                    __log__( options.distribution + ': opening distribution' );
+                    source.assign( tFileStream.Create( options.storage + options.distribution, fmOpenRead ) );
+                    if not options.custom_file_processor( options.distribution, source.get ) then
                         raise Exception.Create( 'Custom file processing returned false' );
                     source.reset;
                     FetchStorageFilesInfo;
@@ -386,43 +395,43 @@ begin
                 __CHECK_ABORTED_ _SET_RESULT_ arABORTED _AND_BREAK__
                 fname := _map.keys[n];
                 __report__( fname, tUpdateStatus.usUPDATING, __percent__( n, _map.count ) );
-                if fname = _options.distribution then
+                if fname = options.distribution then
                     __LOG_MESSAGE_ _map.keys[n] + ': distribution file, skipped' _AND_CONTINUE__
                 if not _map.data[n].NeedUpdate then
                     __LOG_MESSAGE_ _map.keys[n] + ': up to date, skipped' _AND_CONTINUE__
                 if not _map.data[n].Added then
                     begin
                         __log__( fname + ': renaming' );
-                        if not RenameFile( _options.destination + fname, _options.destination + fname + OLD_FILE_EXT ) then
+                        if not RenameFile( options.destination + fname, options.destination + fname + OLD_FILE_EXT ) then
                             __LOG_MESSAGE_ fname + ': couldn''t rename file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtERROR _SET_RESULT_ arERROR _AND_BREAK__
                     end;
                 if not _map.data[n].Removed then
                     try
-                        if( not DirectoryExists( ExtractFilePath( _options.destination + fname ) ) )
-                            and( not ForceDirectories( ExtractFilePath( _options.destination + fname ) ) ) then
+                        if( not DirectoryExists( ExtractFilePath( options.destination + fname ) ) )
+                            and( not ForceDirectories( ExtractFilePath( options.destination + fname ) ) ) then
                                 begin
-                                    if _options.skip_apply_errors then
+                                    if options.skip_apply_errors then
                                         __LOG_MESSAGE_ fname + ': no file directory (' + SysErrorMessage(GetLastOSError) + ')', lmtERROR _SET_RESULT_ arPARTIAL _AND_CONTINUE__
                                     __LOG_MESSAGE_ fname + ': no file directory (' + SysErrorMessage(GetLastOSError) + ')', lmtERROR _SET_RESULT_ arERROR _AND_BREAK__
                                 end;
                         __log__( fname + ': opening source' );
-                        source.assign( tFileStream.Create( _options.storage + fname, fmOpenRead ) );
-                        if assigned( _options.custom_file_processor ) then
+                        source.assign( tFileStream.Create( options.storage + fname, fmOpenRead ) );
+                        if assigned( options.custom_file_processor ) then
                             destination.reset
                         else
                             begin
                                 __log__( fname + ': opening destination' );
-                                destination.assign( tFileStream.Create( _options.destination + fname, fmCreate ) );
+                                destination.assign( tFileStream.Create( options.destination + fname, fmCreate ) );
                             end ;
                         try
                             if not ApplyFile( fname, source.get, destination.get ) then
                                 begin
-                                    if _options.skip_apply_errors then
+                                    if options.skip_apply_errors then
                                         __LOG_MESSAGE_ fname + ': couldn''t apply file, continue', lmtERROR _SET_RESULT_ arPARTIAL _AND_CONTINUE__
                                     __LOG_MESSAGE_ fname + ': couldn''t apply file', lmtERROR _SET_RESULT_ arERROR _AND_BREAK__
                                 end;
                         except
-                            if _options.skip_apply_errors then
+                            if options.skip_apply_errors then
                                 __LOG_MESSAGE_ fname + ': couldn''t apply file, continue', lmtERROR _SET_RESULT_ arPARTIAL _AND_CONTINUE__
                             __LOG_MESSAGE_ fname + ': couldn''t apply file', lmtERROR _SET_RESULT_ arERROR _AND_BREAK__
                         end;
@@ -435,7 +444,7 @@ begin
                     end;
             end;
     finally
-        __report__( _options.destination, tUpdateStatus.usIDLE, -1 );
+        __report__( options.destination, tUpdateStatus.usIDLE, -1 );
     end;
 end;
 
@@ -446,7 +455,7 @@ var
     b: boolean;
 begin
     try
-        __log__( _options.destination + ': reverting' );
+        __log__( options.destination + ': reverting' );
         if( _map.count = 0 )and(( not FillMap )or( _map.count = 0 ))then
             exit( false );
         result := true;
@@ -461,17 +470,17 @@ begin
                 if _map.data[n].Added then // file was added -> removing
                     begin
                         __log__( fname + ': deleting' );
-                        b := DeleteFile( _options.destination + fname );
+                        b := DeleteFile( options.destination + fname );
                         if not b then 
                             __log__( fname + ': couldn''t delete file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
                         result := b and result;
                     end
                 else if _map.data[n].Removed then // file was removed -> restoring from .old
                     begin    
-                        __log__( fname + ': restoring from ' + _options.destination + fname + OLD_FILE_EXT );
-                        if not FileExists( _options.destination + fname + OLD_FILE_EXT ) then
-                            __LOG_MESSAGE_ 'file ' + _options.destination + fname + OLD_FILE_EXT + ' not found', lmtWARNING _SET_RESULT_ false _AND_CONTINUE__
-                        b := RenameFile( _options.destination + fname + OLD_FILE_EXT, _options.destination + fname );        
+                        __log__( fname + ': restoring from ' + options.destination + fname + OLD_FILE_EXT );
+                        if not FileExists( options.destination + fname + OLD_FILE_EXT ) then
+                            __LOG_MESSAGE_ 'file ' + options.destination + fname + OLD_FILE_EXT + ' not found', lmtWARNING _SET_RESULT_ false _AND_CONTINUE__
+                        b := RenameFile( options.destination + fname + OLD_FILE_EXT, options.destination + fname );        
                         if not b then
                             __log__( fname + ': couldn''t rename file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
                         result := b and result;
@@ -479,18 +488,18 @@ begin
                 else // file was changed -> removing new and restoring from .old
                     begin
                         __log__( fname + ': replacing' );
-                        if not FileExists( _options.destination + fname + OLD_FILE_EXT ) then
-                            __LOG_MESSAGE_ 'file ' + _options.destination + fname + OLD_FILE_EXT + ' not found', lmtWARNING _SET_RESULT_ false _AND_CONTINUE__
-                        b := DeleteFile( _options.destination + fname );
+                        if not FileExists( options.destination + fname + OLD_FILE_EXT ) then
+                            __LOG_MESSAGE_ 'file ' + options.destination + fname + OLD_FILE_EXT + ' not found', lmtWARNING _SET_RESULT_ false _AND_CONTINUE__
+                        b := DeleteFile( options.destination + fname );
                         if not b then 
                             __log__( fname + ': couldn''t delete file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
-                        b := RenameFile( _options.destination + fname + OLD_FILE_EXT, _options.destination + fname ) and b;
+                        b := RenameFile( options.destination + fname + OLD_FILE_EXT, options.destination + fname ) and b;
                             __log__( fname + ': couldn''t rename file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
                         result := b and result;
                     end;
             end;
     finally
-        __report__( _options.destination, tUpdateStatus.usIDLE, -1 );
+        __report__( options.destination, tUpdateStatus.usIDLE, -1 );
     end;
 end;
 
@@ -505,9 +514,9 @@ var
 begin
     result := true;
     try
-        __report__( _options.destination, usCHECKING_LOCAL, -1 );
-        __log__( _options.destination + ': fetching local files list' );
-        list.assign( FindAllFiles( _options.destination, _options.mask, true ) );
+        __report__( options.destination, usCHECKING_LOCAL, -1 );
+        __log__( options.destination + ': fetching local files list' );
+        list.assign( FindAllFiles( options.destination, options.mask, true ) );
         n := 0;
         for fname in list.get do
             begin
@@ -516,11 +525,11 @@ begin
                 data := _map.Data[pos];
                 __log__( fname + ': hashing' );
                 try
-                    strm.assign( tFileStream.Create( _options.destination + fname, fmOpenRead ) );
+                    strm.assign( tFileStream.Create( options.destination + fname, fmOpenRead ) );
                     data.local_hash := MD5Print( MD5Stream( strm.get ) );
                     __log__( fname + ': MD5Stream' );
                 except
-                    data.local_hash := MD5Print( MD5File( _options.destination + fname ) );
+                    data.local_hash := MD5Print( MD5File( options.destination + fname ) );
                     __log__( fname + ': MD5File' );
                 end;
                 result := result and ( _map.Data[pos].local_hash = data.local_hash );
@@ -543,9 +552,9 @@ var
     n: word;
 begin
     try
-        __report__( _options.storage, usCHECKING_STORAGE, -1 );
-        __log__( _options.storage + ': fetching storage files list' );
-        list.assign( FindAllFiles( _options.storage, _options.mask, true ) );
+        __report__( options.storage, usCHECKING_STORAGE, -1 );
+        __log__( options.storage + ': fetching storage files list' );
+        list.assign( FindAllFiles( options.storage, options.mask, true ) );
         n := 0;
         for fname in list.get do
             begin
@@ -554,11 +563,11 @@ begin
                 data := _map.Data[pos];
                 __log__( fname + ': hashing' );
                 try
-                    strm.assign( tFileStream.Create( _options.storage + fname, fmOpenRead ) );
+                    strm.assign( tFileStream.Create( options.storage + fname, fmOpenRead ) );
                     data.storage_hash := MD5Print( MD5Stream( strm.get ) );
                     __log__( fname + ': MD5Stream' );
                 except
-                    data.storage_hash := MD5Print( MD5File( _options.storage + fname ) );
+                    data.storage_hash := MD5Print( MD5File( options.storage + fname ) );
                     __log__( fname + ': MD5File' );
                 end;
                 _map.Data[pos] := data;
@@ -574,13 +583,13 @@ function tBaseUpdater.FillMap: boolean;
 begin
     // result := FetchRemoteFiles and FetchLocalFiles; may cause to skip FetchLocalFiles
     _map.clear;
-    __log__( _options.source + ': collecting remote files info' );
+    __log__( options.source + ': collecting remote files info' );
     result := FetchRemoteFilesInfo;
-    __log__( _options.destination + ': collecting local files info' );
+    __log__( options.destination + ': collecting local files info' );
     result := FetchLocalFilesInfo and result;
-    __log__( _options.destination + ': collecting storage files info' );
+    __log__( options.destination + ': collecting storage files info' );
     FetchStorageFilesInfo;
-    __log__( _options.destination + ': total files count is ' + inttostr( _map.count ) );
+    __log__( options.destination + ': total files count is ' + inttostr( _map.count ) );
 end;
 
 procedure tBaseUpdater.__report__( const path: string; const status: tUpdateStatus; const progress_current: tUpdateProgress; const progress_total: tUpdateProgress );
@@ -589,8 +598,8 @@ var
 begin
     if progress_total < 0 then
         _progress_total := progress_current;
-    if assigned( _options.progress_callback ) then
-        _options.progress_callback( path, status, progress_current, _progress_total );
+    if assigned( options.progress_callback ) then
+        options.progress_callback( path, status, progress_current, _progress_total );
 end;
 
 function tBaseUpdater.__percent__( const current, total: word ): tUpdateProgress;
@@ -602,10 +611,10 @@ procedure tBaseUpdater.__log__( const message_text: string; const message_type: 
 var
     smt: string;
 begin
-    if assigned( _options.log_processor ) then
+    if assigned( options.log_processor ) then
         begin
             WriteStr( smt, message_type );
-            _options.log_processor( 
+            options.log_processor( 
                 formatdatetime( 'dd.mm.yyyy hh:nn:ss.zzz', now )+' ['+self.ClassName+']['+instance_id+']['+smt+'] '
                     + message_text + LineEnding
                 , message_type
