@@ -578,11 +578,8 @@ begin
     result := FetchRemoteFilesInfo;
     __log__( _options.destination + ': collecting local files info' );
     result := FetchLocalFilesInfo and result;
-    if _options.distribution.IsEmpty then
-        begin
-            __log__( _options.destination + ': collecting storage files info' );
-            FetchStorageFilesInfo;
-        end;
+    __log__( _options.destination + ': collecting storage files info' );
+    FetchStorageFilesInfo;
     __log__( _options.destination + ': total files count is ' + inttostr( _map.count ) );
 end;
 
