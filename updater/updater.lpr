@@ -27,7 +27,7 @@ end;
 
 procedure test(const rr:rec);
 begin
-    rr.a:='aa';
+    //rr.a:='aa';
 end;
 
 begin

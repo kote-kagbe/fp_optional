@@ -45,6 +45,7 @@ type
         storage: string; // temporary folder to store updates
         mask: string; // list of file masks to work with
         skip_apply_errors: boolean; // when true and ApplyFile fails then ApplyUpdates doesn't stop and arPARTIAL will be returned
+        distribution: string; // packed new files, requires assigned custom_file_processor. When set custom_file_processor shall unpack new files into .storage then FetchStorageFilesInfo will be called
         custom_file_processor: tCustomFileProcessor;
         progress_callback: tProgressCallback;
         log_processor: tLogProcessor;
@@ -110,7 +111,7 @@ type
 
         // aborts any action
         procedure Abort;
-        // removes *.old files
+        // removes *.old files and .storage
         function CleanUp: boolean;
     end;
 
@@ -147,6 +148,9 @@ begin
     if not DirectoryExists( self.storage ) then
         if not ForceDirectories( self.storage ) then
             raise Exception.Create( 'Storage path does not exist' );
+
+    if( not self.distribution.IsEmpty )and( not assigned( self.custom_file_processor ) )then
+        raise Exception.Create( 'When using distribution the custom file processor should be set' );
 
     if self.mask.IsEmpty then
         self.mask := '*';
@@ -255,33 +259,40 @@ begin
 end;
 
 function tBaseUpdater.CleanUp: boolean;
-var
-    list: specialize tScopeContainer<tStringList>;
-    fname: string;
-    n: word;
-    b: boolean;
-begin
-    result := true;
-    try
-        __log__( _options.destination + ': starting cleanup' );
-        __report__( _options.destination, tUpdateStatus.usCLEANUP, -1 );
-        list.assign( FindAllFiles( _options.destination, '*'+OLD_FILE_EXT, true ) );
-        __log__( _options.destination + ': found ' + inttostr( list.get.count ) + ' ' + OLD_FILE_EXT + ' files' );
-        n := 0;
-        for fname in list.get do
-            begin
-                _CHECK_ABORTED SET_RESULT false AND_BREAK_
-                __log__( fname + ': deleting' );
-                b := DeleteFile( _options.destination + fname );
-                if not b then
-                    __log__( fname + ': couldn''t delete file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
-                result := b and result;
-                n += 1;
-                __report__( fname, tUpdateStatus.usCLEANUP, __percent__( n, list.get.count ) );
-            end;
-    finally
-        __report__( _options.destination, tUpdateStatus.usIDLE, -1 );
+
+    function clean_up( const path, mask: string ): boolean;    
+    var
+        list: specialize tScopeContainer<tStringList>;
+        fname: string;
+        n: word;
+        b: boolean;
+    begin
+        result := true;
+        try
+            __report__( path, tUpdateStatus.usCLEANUP, -1 );
+            list.assign( FindAllFiles( path, mask, true ) );
+            __log__( path + ': found ' + inttostr( list.get.count ) + ' files' );
+            n := 0;
+            for fname in list.get do
+                begin
+                    _CHECK_ABORTED SET_RESULT false AND_BREAK_
+                    __log__( fname + ': deleting' );
+                    b := DeleteFile( path + fname );
+                    if not b then
+                        __log__( fname + ': couldn''t delete file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
+                    result := b and result;
+                    n += 1;
+                    __report__( fname, tUpdateStatus.usCLEANUP, __percent__( n, list.get.count ) );
+                end;
+        finally
+            __report__( path, tUpdateStatus.usIDLE, -1 );
+        end;
     end;
+
+begin
+    __log__( _options.destination + ': starting cleanup' );
+    result := clean_up( _options.destination, '*'+OLD_FILE_EXT );
+    result := clean_up( _options.storage, '*' ) and result;
 end;
 
 function tBaseUpdater.CheckUpdates: tCheckResult;
@@ -316,6 +327,8 @@ begin
                         begin
                             if _map.data[n].Stored then
                                 _LOG_MESSAGE _map.keys[n] + ': found at storage, skipping' AND_CONTINUE_
+                            if _map.data[n].Removed then
+                                _LOG_MESSAGE _map.keys[n] + ': marked for removal, skipping' AND_CONTINUE_
                             __log__( _map.keys[n] + ': opening storage stream at ' + _options.storage + _map.keys[n] );
                             strm.assign( tFileStream.Create( _options.storage + _map.keys[n], fmCreate ) );
                             __log__( _map.keys[n] + ': fetching file' );
@@ -351,11 +364,30 @@ begin
         if not CleanUp then
             exit( arERROR ); 
         result := arOK;
+        if not _options.distribution.IsEmpty then
+            begin
+                __log__( _options.distribution + ': processing distribution' );
+                try
+                    __log__( _options.distribution + ': opening distribution' );
+                    source.assign( tFileStream.Create( _options.storage + _options.distribution, fmOpenRead ) );
+                    if not _options.custom_file_processor( _options.distribution, source.get ) then
+                        raise Exception.Create( 'Custom file processing returned false' );
+                    source.reset;
+                    FetchStorageFilesInfo;
+                except on exc: Exception do
+                    begin
+                        __log__( 'distribution processing failed: ' + exc.Message );
+                        exit( arERROR );
+                    end;  
+                end;              
+            end;
         for n := 0 to _map.count - 1 do
             begin
                 _CHECK_ABORTED SET_RESULT arABORTED AND_BREAK_
                 fname := _map.keys[n];
                 __report__( fname, tUpdateStatus.usUPDATING, __percent__( n, _map.count ) );
+                if fname = _options.distribution then
+                    _LOG_MESSAGE _map.keys[n] + ': distribution file, skipped' AND_CONTINUE_
                 if not _map.data[n].NeedUpdate then
                     _LOG_MESSAGE _map.keys[n] + ': up to date, skipped' AND_CONTINUE_
                 if not _map.data[n].Added then
@@ -366,6 +398,13 @@ begin
                     end;
                 if not _map.data[n].Removed then
                     try
+                        if( not DirectoryExists( ExtractFilePath( _options.destination + fname ) ) )
+                            and( not ForceDirectories( ExtractFilePath( _options.destination + fname ) ) ) then
+                                begin
+                                    if _options.skip_apply_errors then
+                                        _LOG_MESSAGE fname + ': no file directory (' + SysErrorMessage(GetLastOSError) + ')', lmtERROR SET_RESULT arPARTIAL AND_CONTINUE_
+                                    _LOG_MESSAGE fname + ': no file directory (' + SysErrorMessage(GetLastOSError) + ')', lmtERROR SET_RESULT arERROR AND_BREAK_
+                                end;
                         __log__( fname + ': opening source' );
                         source.assign( tFileStream.Create( _options.storage + fname, fmOpenRead ) );
                         if assigned( _options.custom_file_processor ) then
@@ -539,8 +578,11 @@ begin
     result := FetchRemoteFilesInfo;
     __log__( _options.destination + ': collecting local files info' );
     result := FetchLocalFilesInfo and result;
-    __log__( _options.destination + ': collecting storage files info' );
-    FetchStorageFilesInfo;
+    if _options.distribution.IsEmpty then
+        begin
+            __log__( _options.destination + ': collecting storage files info' );
+            FetchStorageFilesInfo;
+        end;
     __log__( _options.destination + ': total files count is ' + inttostr( _map.count ) );
 end;
 
