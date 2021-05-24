@@ -240,7 +240,7 @@ begin
             begin
                 repeat
                     try
-                        _CHECK_ABORTED SET_RESULT false AND_BREAK_
+                        __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
                         n := destination.CopyFrom( source, FILE_OPERATION_CHUNK_SIZE );
                         __report__( path, usUPDATING, __percent__( source.position, source.size ) );
                     except on exc: Exception do
@@ -275,7 +275,7 @@ function tBaseUpdater.CleanUp: boolean;
             n := 0;
             for fname in list.get do
                 begin
-                    _CHECK_ABORTED SET_RESULT false AND_BREAK_
+                    __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
                     __log__( fname + ': deleting' );
                     b := DeleteFile( path + fname );
                     if not b then
@@ -322,13 +322,13 @@ begin
         try
             for n := 0 to _map.count - 1 do
                 begin
-                    _CHECK_ABORTED SET_RESULT frABORTED AND_BREAK_
+                    __CHECK_ABORTED_ _SET_RESULT_ frABORTED _AND_BREAK__
                     if _map.data[n].NeedUpdate then
                         begin
                             if _map.data[n].Stored then
-                                _LOG_MESSAGE _map.keys[n] + ': found at storage, skipping' AND_CONTINUE_
+                                __LOG_MESSAGE_ _map.keys[n] + ': found at storage, skipping' _AND_CONTINUE__
                             if _map.data[n].Removed then
-                                _LOG_MESSAGE _map.keys[n] + ': marked for removal, skipping' AND_CONTINUE_
+                                __LOG_MESSAGE_ _map.keys[n] + ': marked for removal, skipping' _AND_CONTINUE__
                             __log__( _map.keys[n] + ': opening storage stream at ' + _options.storage + _map.keys[n] );
                             strm.assign( tFileStream.Create( _options.storage + _map.keys[n], fmCreate ) );
                             __log__( _map.keys[n] + ': fetching file' );
@@ -383,18 +383,18 @@ begin
             end;
         for n := 0 to _map.count - 1 do
             begin
-                _CHECK_ABORTED SET_RESULT arABORTED AND_BREAK_
+                __CHECK_ABORTED_ _SET_RESULT_ arABORTED _AND_BREAK__
                 fname := _map.keys[n];
                 __report__( fname, tUpdateStatus.usUPDATING, __percent__( n, _map.count ) );
                 if fname = _options.distribution then
-                    _LOG_MESSAGE _map.keys[n] + ': distribution file, skipped' AND_CONTINUE_
+                    __LOG_MESSAGE_ _map.keys[n] + ': distribution file, skipped' _AND_CONTINUE__
                 if not _map.data[n].NeedUpdate then
-                    _LOG_MESSAGE _map.keys[n] + ': up to date, skipped' AND_CONTINUE_
+                    __LOG_MESSAGE_ _map.keys[n] + ': up to date, skipped' _AND_CONTINUE__
                 if not _map.data[n].Added then
                     begin
                         __log__( fname + ': renaming' );
                         if not RenameFile( _options.destination + fname, _options.destination + fname + OLD_FILE_EXT ) then
-                            _LOG_MESSAGE fname + ': couldn''t rename file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtERROR SET_RESULT arERROR AND_BREAK_
+                            __LOG_MESSAGE_ fname + ': couldn''t rename file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtERROR _SET_RESULT_ arERROR _AND_BREAK__
                     end;
                 if not _map.data[n].Removed then
                     try
@@ -402,8 +402,8 @@ begin
                             and( not ForceDirectories( ExtractFilePath( _options.destination + fname ) ) ) then
                                 begin
                                     if _options.skip_apply_errors then
-                                        _LOG_MESSAGE fname + ': no file directory (' + SysErrorMessage(GetLastOSError) + ')', lmtERROR SET_RESULT arPARTIAL AND_CONTINUE_
-                                    _LOG_MESSAGE fname + ': no file directory (' + SysErrorMessage(GetLastOSError) + ')', lmtERROR SET_RESULT arERROR AND_BREAK_
+                                        __LOG_MESSAGE_ fname + ': no file directory (' + SysErrorMessage(GetLastOSError) + ')', lmtERROR _SET_RESULT_ arPARTIAL _AND_CONTINUE__
+                                    __LOG_MESSAGE_ fname + ': no file directory (' + SysErrorMessage(GetLastOSError) + ')', lmtERROR _SET_RESULT_ arERROR _AND_BREAK__
                                 end;
                         __log__( fname + ': opening source' );
                         source.assign( tFileStream.Create( _options.storage + fname, fmOpenRead ) );
@@ -418,13 +418,13 @@ begin
                             if not ApplyFile( fname, source.get, destination.get ) then
                                 begin
                                     if _options.skip_apply_errors then
-                                        _LOG_MESSAGE fname + ': couldn''t apply file, continue', lmtERROR SET_RESULT arPARTIAL AND_CONTINUE_
-                                    _LOG_MESSAGE fname + ': couldn''t apply file', lmtERROR SET_RESULT arERROR AND_BREAK_
+                                        __LOG_MESSAGE_ fname + ': couldn''t apply file, continue', lmtERROR _SET_RESULT_ arPARTIAL _AND_CONTINUE__
+                                    __LOG_MESSAGE_ fname + ': couldn''t apply file', lmtERROR _SET_RESULT_ arERROR _AND_BREAK__
                                 end;
                         except
                             if _options.skip_apply_errors then
-                                _LOG_MESSAGE fname + ': couldn''t apply file, continue', lmtERROR SET_RESULT arPARTIAL AND_CONTINUE_
-                            _LOG_MESSAGE fname + ': couldn''t apply file', lmtERROR SET_RESULT arERROR AND_BREAK_
+                                __LOG_MESSAGE_ fname + ': couldn''t apply file, continue', lmtERROR _SET_RESULT_ arPARTIAL _AND_CONTINUE__
+                            __LOG_MESSAGE_ fname + ': couldn''t apply file', lmtERROR _SET_RESULT_ arERROR _AND_BREAK__
                         end;
                     except on exc: Exception do
                         begin
@@ -452,11 +452,11 @@ begin
         result := true;
         for n := 0 to _map.count - 1 do
             begin
-                _CHECK_ABORTED SET_RESULT false AND_BREAK_
+                __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
                 fname := _map.keys[n];
                 __report__( fname, tUpdateStatus.usREVERTING, __percent__( n, _map.count ) );
                 if not _map.data[n].NeedUpdate then
-                    _LOG_MESSAGE _map.keys[n] + ': up to date, skipped' AND_CONTINUE_
+                    __LOG_MESSAGE_ _map.keys[n] + ': up to date, skipped' _AND_CONTINUE__
                 __log__( fname + ': reverting' );
                 if _map.data[n].Added then // file was added -> removing
                     begin
@@ -470,7 +470,7 @@ begin
                     begin    
                         __log__( fname + ': restoring from ' + _options.destination + fname + OLD_FILE_EXT );
                         if not FileExists( _options.destination + fname + OLD_FILE_EXT ) then
-                            _LOG_MESSAGE 'file ' + _options.destination + fname + OLD_FILE_EXT + ' not found', lmtWARNING SET_RESULT false AND_CONTINUE_
+                            __LOG_MESSAGE_ 'file ' + _options.destination + fname + OLD_FILE_EXT + ' not found', lmtWARNING _SET_RESULT_ false _AND_CONTINUE__
                         b := RenameFile( _options.destination + fname + OLD_FILE_EXT, _options.destination + fname );        
                         if not b then
                             __log__( fname + ': couldn''t rename file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
@@ -480,7 +480,7 @@ begin
                     begin
                         __log__( fname + ': replacing' );
                         if not FileExists( _options.destination + fname + OLD_FILE_EXT ) then
-                            _LOG_MESSAGE 'file ' + _options.destination + fname + OLD_FILE_EXT + ' not found', lmtWARNING SET_RESULT false AND_CONTINUE_
+                            __LOG_MESSAGE_ 'file ' + _options.destination + fname + OLD_FILE_EXT + ' not found', lmtWARNING _SET_RESULT_ false _AND_CONTINUE__
                         b := DeleteFile( _options.destination + fname );
                         if not b then 
                             __log__( fname + ': couldn''t delete file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
@@ -511,7 +511,7 @@ begin
         n := 0;
         for fname in list.get do
             begin
-                _CHECK_ABORTED SET_RESULT false AND_BREAK_
+                __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
                 pos := _map.Add( fname );
                 data := _map.Data[pos];
                 __log__( fname + ': hashing' );
@@ -549,7 +549,7 @@ begin
         n := 0;
         for fname in list.get do
             begin
-                _CHECK_ABORTED AND_BREAK_
+                __CHECK_ABORTED_ _AND_BREAK__
                 pos := _map.Add( fname );
                 data := _map.Data[pos];
                 __log__( fname + ': hashing' );
