@@ -20,6 +20,7 @@ type
     protected
         _shared_folder_id: string;
 
+        // this method better be overridden with any kind of file list parsing instead of full tree walking
         function FetchRemoteFilesInfo: boolean; override;
         function FetchFile( const path: string; const destination: tStream ): boolean; override;
     public

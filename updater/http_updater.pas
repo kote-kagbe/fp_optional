@@ -4,15 +4,19 @@ unit http_updater;
 
 interface
 
-uses base_updater, network_updater, httpsend, ssl_openssl, sysutils, classes, fgl;
+uses base_updater, network_updater, httpsend, ssl_openssl, sysutils, classes, fgl, dateutils;
 
 const
     MAX_REDIRECTION_COUNT: byte = 4;
+    HTTP_CALL_INTERVAL = 100; // milliseconds
 
 type
     tAPIParams = specialize tFPGMap<string,string>;
 
     tHTTPUpdater = class( tNetworkUpdater )
+    private
+        _http_call_interval: int64;
+        _last_call_dt: tDateTime;
     protected
         _http: THTTPSend;
         _api_url: string;
@@ -24,6 +28,8 @@ type
     public
         constructor Create( const updater_options: tUpdaterOptions ); override;
         destructor Destroy; override;
+
+        property http_call_interval: int64 read _http_call_interval write _http_call_interval;
     end;
 
 implementation
@@ -34,6 +40,8 @@ begin
     _api_params := tAPIParams.Create;
     _api_params.sorted := true;
     _api_params.Duplicates := dupIgnore;
+    _http_call_interval := HTTP_CALL_INTERVAL;
+    _last_call_dt := 0;
 end;
 
 destructor tHTTPUpdater.Destroy;
@@ -80,7 +88,16 @@ function tHttpUpdater.request( url: string; method: string; log_data: boolean; r
 	        exit( false )
     end;
 
+var
+    delay: int64;
 begin
+    while MilliSecondsBetween( now, _last_call_dt ) < http_call_interval do
+        begin
+            delay := _http_call_interval div 2;
+            __log__( Format( 'http call interval %d not reached, sleeping for %d', [http_call_interval, delay] ), lmtWARNING );
+            sleep( delay );
+        end;
+    _last_call_dt := now;
     __log__( 'REQUEST=' + url );
     _http.Clear;
     _http.ProxyHost := proxy.address;

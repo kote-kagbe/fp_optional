@@ -2,7 +2,7 @@ program updater;
 {$mode objfpc}{$H+}
 
 uses classes, base_updater, googledrive_updater, yandexdisk_updater, ftp_updater, local_updater,
-     fileutil, sysutils, fgl;
+     fileutil, sysutils, fgl, dateutils;
 
 type
     rec = record
@@ -18,6 +18,7 @@ var
     f: text;
     b: boolean;
     m: map;
+    dt: tDatetime;
 
 procedure ilog( const message_text: string; const message_type: tLogMessageType = lmtMESSAGE );
 begin
@@ -38,6 +39,7 @@ o.storage := '/Users/efimovvp/Documents/tmp/updates';
 {$else}
 
 {$endif}
+
 
 u := tLocalUpdater.create(o);
 
