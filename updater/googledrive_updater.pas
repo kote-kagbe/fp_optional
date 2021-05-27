@@ -6,7 +6,7 @@ unit googledrive_updater;
 
 interface
 
-uses base_updater, http_updater, googledrive_secret, fpjson, sysutils;
+uses base_updater, http_updater, googledrive_secret, fpjson, sysutils, classes;
 
 const
     GOOGLE_DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
