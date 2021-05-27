@@ -14,41 +14,64 @@ type
 
 var
     o: tUpdaterOptions;
-    u:tBaseUpdater;
-    s:string;
-    i:integer=123;
+    u: tBaseUpdater;
+    f: text;
+    b: boolean;
     m: map;
-    r: rec;
 
 procedure ilog( const message_text: string; const message_type: tLogMessageType = lmtMESSAGE );
 begin
-    writeln(message_text);
-end;
-
-procedure test(const rr:rec);
-begin
-    //rr.a:='aa';
+    write(message_text);
+    write(f,message_text);
 end;
 
 begin
+
+assignfile(f,'log.txt');
+rewrite(f);
 
 o.log_processor := @ilog;
-o.source := 'src';
-o.destination := 'dst';
-//o.storage:='c:\temp\';
+{$ifdef darwin}
+o.source := '/Users/efimovvp/Documents/tmp/source';
+o.destination := '/Users/efimovvp/Documents/tmp/target';
+o.storage := '/Users/efimovvp/Documents/tmp/updates';
+{$else}
+
+{$endif}
 
 u := tLocalUpdater.create(o);
 
+try
+    b := u.CheckUpdates = crOUTDATED;
+    writeln( 'check result ', b );
+    if b then
+        b := u.FetchUpdates = frOK;
+    writeln( 'fetch result ', b );
+    if b then
+        b := u.ApplyUpdates = arOK;
+    writeln( 'apply result ', b );
+    if b then
+        u.cleanup;
+    writeln( 'cleanup result ', b );
+except on exc: Exception do
+    writeln( 'ERROR ' + exc.message );
+end;
 
-deletefile('asdas');
-writeln(SysErrorMessage(GetLastOSError));
-readln;
+u.free;
 
-m := map.Create;
-r.a:='a'; r.b:='b';
-m.add('0',r);
-test(m.Data[0]);
-writeln(m.data[0].a);
+closefile(f);
+
+m := map.create;
+m.Duplicates := dupignore;
+m.sorted := true;
+m.add( 'asd' );
+m.add( 'asd' );
+m.add( 'asd' );
+m.add( 'asd' );
+writeln( m.count );
+m.free;
 
 end.
 
+// fpc updater.lpr -Si -gh -Fu../scope_container -Fu../md5_stream -Fu/Library/Lazarus/components/lazutils/lib/x86_64-darwin
+// ./updater

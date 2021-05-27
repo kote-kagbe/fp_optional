@@ -3,9 +3,20 @@ unit base_updater;
 (*
 syntax notes
 - class variables start with _
+    _my_protected_or_private_var: supertype;
 - service methods like logging etc. start and end with __
+    __log__( 'mymessage' );
 - constants are in upper case
-- outer macroses start and end with __, inner macroses start and end with _
+    VERY_CONSTANT_VALUE = 666;
+- macroses are in upper case, outer macroses start and end with __, inner macroses start and end with _
+    __START_MACROS_ with some code _CONTINUE_MACROS_ with more code _END_MACROS__
+- macros should end with semicolon
+    {$define __MY_MACRO__:=begin result:=false; __log__( 'oops!' ); break; end;}
+    ...some loop
+        ...some code
+        if something_happened then
+            __MY_MACRO__
+    ...after loop code
 *)
 
 {$mode objfpc}{$H+}
@@ -16,7 +27,7 @@ syntax notes
 
 interface
 
-uses sysutils, classes, fgl, fileutil, md5,
+uses sysutils, classes, fgl, fileutil, md5, math,
      scope_container, md5_stream;
 
 const
@@ -95,7 +106,7 @@ type
         // fills _map with local data: options.destination -> _map
         function FetchLocalFilesInfo: boolean; virtual;
         // fetches single remote file to local machine: options.source -> options.storage
-        function FetchFile( const path: string; const strm: tStream ): boolean; virtual; abstract;
+        function FetchFile( const path: string; const destination: tStream ): boolean; virtual; abstract;
         // replaces single local file with updated one: options.storage -> options.destination
         function ApplyFile( const path: string; const source, destination: tStream ): boolean; virtual;
 
@@ -121,7 +132,7 @@ type
         // aborts any action
         procedure Abort;
         // removes *.old files and .storage
-        function CleanUp: boolean;
+        function CleanUp( all: boolean = true ): boolean;
     end;
 
 implementation
@@ -141,8 +152,6 @@ procedure tUpdaterOptions.Prepare;
 begin
     if self.source.IsEmpty then
         raise Exception.Create( 'Source path is not set' );
-    if not self.source.EndsWith( DirectorySeparator ) then
-        self.source += DirectorySeparator;
 
     if self.destination.IsEmpty then
         raise Exception.Create( 'Destination path is not set' );
@@ -154,6 +163,8 @@ begin
 
     if self.storage.IsEmpty then
         self.storage := self.destination + DEFAULT_STORAGE_NAME;
+    if not self.storage.EndsWith( DirectorySeparator ) then
+        self.storage += DirectorySeparator;
     if not DirectoryExists( self.storage ) then
         if not ForceDirectories( self.storage ) then
             raise Exception.Create( 'Storage path does not exist' );
@@ -217,6 +228,7 @@ begin
     _options := updater_options;
     options.Prepare;
     _map := tFileList.Create;
+    _map.sorted := true;
     _map.Duplicates := dupIgnore;
     _aborted := false;
     _id := inttostr(random(high(longint)));
@@ -239,6 +251,7 @@ var
 begin
     try
         __log__( path + ': applying' );
+        result := false;
         if assigned( options.custom_file_processor ) then
             begin
                 __log__( path + ': running custom file processing' );
@@ -250,16 +263,17 @@ begin
                 repeat
                     try
                         __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
-                        n := destination.CopyFrom( source, FILE_OPERATION_CHUNK_SIZE );
+                        n := destination.CopyFrom( source, min( FILE_OPERATION_CHUNK_SIZE, source.size-source.position ) );
                         __report__( path, usUPDATING, __percent__( source.position, source.size ) );
                     except on exc: Exception do
                         begin
-                            __log__( path + ': applying raised exception ''' + exc.message + '''', lmtERROR );
+                            __log__( path + ': applying raised exception ''' + exc.tostring + '''', lmtERROR );
                             result := false;
                             raise;
                         end;
                     end;
                 until n < FILE_OPERATION_CHUNK_SIZE;
+                result := true;
                 __log__( path + ': applyed' );
             end;
     finally
@@ -267,7 +281,7 @@ begin
     end;
 end;
 
-function tBaseUpdater.CleanUp: boolean;
+function tBaseUpdater.CleanUp( all: boolean ): boolean;
 
     function clean_up( const path, mask: string ): boolean;    
     var
@@ -286,7 +300,7 @@ function tBaseUpdater.CleanUp: boolean;
                 begin
                     __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
                     __log__( fname + ': deleting' );
-                    b := DeleteFile( path + fname );
+                    b := DeleteFile( fname );
                     if not b then
                         __log__( fname + ': couldn''t delete file with error ''' + SysErrorMessage(GetLastOSError) + '''', lmtWARNING );
                     result := b and result;
@@ -301,7 +315,8 @@ function tBaseUpdater.CleanUp: boolean;
 begin
     __log__( options.destination + ': starting cleanup' );
     result := clean_up( options.destination, '*'+OLD_FILE_EXT );
-    result := clean_up( options.storage, '*' ) and result;
+    if all then
+        result := clean_up( options.storage, '*' ) and result;
 end;
 
 function tBaseUpdater.CheckUpdates: tCheckResult;
@@ -339,6 +354,7 @@ begin
                             if _map.data[n].Removed then
                                 __LOG_MESSAGE_ _map.keys[n] + ': marked for removal, skipping' _AND_CONTINUE__
                             __log__( _map.keys[n] + ': opening storage stream at ' + options.storage + _map.keys[n] );
+                            ForceDirectories( extractfilepath( options.storage + _map.keys[n] ) );
                             strm.assign( tFileStream.Create( options.storage + _map.keys[n], fmCreate ) );
                             __log__( _map.keys[n] + ': fetching file' );
                             if not FetchFile( _map.keys[n], strm.get ) then
@@ -351,7 +367,7 @@ begin
                 end;
         except on exc: Exception do
             begin
-                __log__( ': fetching raised exception ''' + exc.message + '''', lmtERROR );
+                __log__( ': fetching raised exception ''' + exc.tostring + '''', lmtERROR );
                 result := frERROR;
                 raise;
             end;
@@ -370,7 +386,7 @@ begin
     try
         if( _map.count = 0 )and(( not FillMap )or( _map.count = 0 ))then
             exit( arERROR );
-        if not CleanUp then
+        if not CleanUp( false ) then
             exit( arERROR ); 
         result := arOK;
         if not options.distribution.IsEmpty then
@@ -385,7 +401,7 @@ begin
                     FetchStorageFilesInfo;
                 except on exc: Exception do
                     begin
-                        __log__( 'distribution processing failed: ' + exc.Message );
+                        __log__( 'distribution processing failed: ' + exc.tostring );
                         exit( arERROR );
                     end;  
                 end;              
@@ -437,7 +453,7 @@ begin
                         end;
                     except on exc: Exception do
                         begin
-                            __log__( ': applying raised exception ''' + exc.message + '''', lmtERROR );
+                            __log__( ': applying raised exception ''' + exc.tostring + '''', lmtERROR );
                             result := arERROR;
                             raise;
                         end;
@@ -506,7 +522,7 @@ end;
 function tBaseUpdater.FetchLocalFilesInfo: boolean;
 var
     list: specialize tScopeContainer<tStringList>;
-    fname: string;
+    fname, rel_name: string;
     pos: integer;
     strm: specialize tScopeContainer<tFileStream>;
     data: tFileRecord;
@@ -521,21 +537,24 @@ begin
         for fname in list.get do
             begin
                 __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
-                pos := _map.Add( fname );
+                if fname.endswith( OLD_FILE_EXT ) then
+                    continue;
+                rel_name := fname.substring( length( options.destination ) );
+                pos := _map.Add( rel_name );
                 data := _map.Data[pos];
-                __log__( fname + ': hashing' );
+                __log__( rel_name + ': hashing' );
                 try
-                    strm.assign( tFileStream.Create( options.destination + fname, fmOpenRead ) );
+                    strm.assign( tFileStream.Create( options.destination + rel_name, fmOpenRead ) );
                     data.local_hash := MD5Print( MD5Stream( strm.get ) );
-                    __log__( fname + ': MD5Stream' );
+                    __log__( rel_name + ': MD5Stream' );
                 except
-                    data.local_hash := MD5Print( MD5File( options.destination + fname ) );
-                    __log__( fname + ': MD5File' );
+                    data.local_hash := MD5Print( MD5File( options.destination + rel_name ) );
+                    __log__( rel_name + ': MD5File' );
                 end;
-                result := result and ( _map.Data[pos].local_hash = data.local_hash );
+                result := result and ( not data.local_hash.IsEmpty );
                 _map.Data[pos] := data;
                 n += 1;
-                __report__( fname, usCHECKING_LOCAL, __percent__( n, list.get.count ) );
+                __report__( rel_name, usCHECKING_LOCAL, __percent__( n, list.get.count ) );
             end;
     finally
         __report__( '', usIDLE, -1 );
@@ -545,7 +564,7 @@ end;
 procedure tBaseUpdater.FetchStorageFilesInfo;
 var
     list: specialize tScopeContainer<tStringList>;
-    fname: string;
+    fname, rel_name: string;
     pos: integer;
     strm: specialize tScopeContainer<tFileStream>;
     data: tFileRecord;
@@ -559,20 +578,21 @@ begin
         for fname in list.get do
             begin
                 __CHECK_ABORTED_ _AND_BREAK__
-                pos := _map.Add( fname );
+                rel_name := fname.substring( length( options.storage ) );
+                pos := _map.Add( rel_name );
                 data := _map.Data[pos];
-                __log__( fname + ': hashing' );
+                __log__( rel_name + ': hashing' );
                 try
-                    strm.assign( tFileStream.Create( options.storage + fname, fmOpenRead ) );
+                    strm.assign( tFileStream.Create( options.storage + rel_name, fmOpenRead ) );
                     data.storage_hash := MD5Print( MD5Stream( strm.get ) );
-                    __log__( fname + ': MD5Stream' );
+                    __log__( rel_name + ': MD5Stream' );
                 except
-                    data.storage_hash := MD5Print( MD5File( options.storage + fname ) );
-                    __log__( fname + ': MD5File' );
+                    data.storage_hash := MD5Print( MD5File( options.storage + rel_name ) );
+                    __log__( rel_name + ': MD5File' );
                 end;
                 _map.Data[pos] := data;
                 n += 1;
-                __report__( fname, usCHECKING_STORAGE, __percent__( n, list.get.count ) );
+                __report__( rel_name, usCHECKING_STORAGE, __percent__( n, list.get.count ) );
             end;
     finally
         __report__( '', usIDLE, -1 );
@@ -580,6 +600,8 @@ begin
 end;
 
 function tBaseUpdater.FillMap: boolean;
+var
+    n,c: integer;
 begin
     // result := FetchRemoteFiles and FetchLocalFiles; may cause to skip FetchLocalFiles
     _map.clear;
@@ -587,9 +609,21 @@ begin
     result := FetchRemoteFilesInfo;
     __log__( options.destination + ': collecting local files info' );
     result := FetchLocalFilesInfo and result;
-    __log__( options.destination + ': collecting storage files info' );
-    FetchStorageFilesInfo;
-    __log__( options.destination + ': total files count is ' + inttostr( _map.count ) );
+    c := 0;
+    if _map.count > 0 then
+        for n := 0 to _map.count -1 do
+            if _map.data[n].NeedUpdate then
+                c += 1;
+    if c > 0 then 
+        begin
+            __log__( options.destination + ': collecting storage files info' );
+            FetchStorageFilesInfo;
+        end;
+    __log__( options.destination + ': total files ' + inttostr( _map.count ) + ' need update ' + inttostr( c ) );
+
+    if _map.count > 0 then
+        for n := 0 to _map.count -1 do
+            __log__( Format( '%s: remote: %s local: %s storage: %s need update: %d', [_map.keys[n], _map.data[n].remote_hash, _map.data[n].local_hash, _map.data[n].storage_hash, integer(_map.data[n].NeedUpdate)] ) );
 end;
 
 procedure tBaseUpdater.__report__( const path: string; const status: tUpdateStatus; const progress_current: tUpdateProgress; const progress_total: tUpdateProgress );
