@@ -38,8 +38,9 @@ const
 type
     // log message types
     tLogMessageType = ( lmtMESSAGE, lmtWARNING, lmtERROR );
-    // custom log function
+    // custom log functions
     tLogProcessor = procedure( const message_text: string; const message_type: tLogMessageType = lmtMESSAGE );
+    tStreamLogProcessor = procedure( const data: tStream; const message_type: tLogMessageType = lmtMESSAGE );
     // operations result
     tCheckResult = ( crUPTODATE, crOUTDATED, crABORTED, crERROR );
     tFetchResult = ( frOK, frABORTED, frERROR );
@@ -68,6 +69,7 @@ type
         custom_file_processor: tCustomFileProcessor;
         progress_callback: tProgressCallback;
         log_processor: tLogProcessor;
+        stream_log_processor: tStreamLogProcessor;
     private
         procedure Prepare;
         function Summary: string;

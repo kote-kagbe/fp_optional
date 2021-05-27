@@ -61,17 +61,7 @@ u.free;
 
 closefile(f);
 
-m := map.create;
-m.Duplicates := dupignore;
-m.sorted := true;
-m.add( 'asd' );
-m.add( 'asd' );
-m.add( 'asd' );
-m.add( 'asd' );
-writeln( m.count );
-m.free;
-
 end.
 
-// fpc updater.lpr -Si -gh -Fu../scope_container -Fu../md5_stream -Fu/Library/Lazarus/components/lazutils/lib/x86_64-darwin
+// fpc updater.lpr -Si -gh -Fu../scope_container -Fu../md5_stream -Fu/Library/Lazarus/components/lazutils/lib/x86_64-darwin -Fu../synapse40/source/lib -Fu/opt/fpc-3.0.4/packages/fcl-json/src
 // ./updater
