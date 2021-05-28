@@ -81,6 +81,7 @@ type
         remote_hash: string;
         storage_hash: string;
         remote_path: string;
+        size: int64;
     function NeedUpdate: boolean;
     function Added: boolean;
     function Removed: boolean;
@@ -207,7 +208,8 @@ end;
 
 function tFileRecord.NeedUpdate: boolean;
 begin
-    result := self.local_hash <> self.remote_hash;
+    result := ( ( not self.remote_hash.IsEmpty )and( self.local_hash <> self.remote_hash ) )
+              or ( ( not self.storage_hash.IsEmpty )and( self.local_hash <> self.storage_hash ) );
 end;
 
 function tFileRecord.Added: boolean;

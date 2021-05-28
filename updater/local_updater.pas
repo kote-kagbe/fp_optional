@@ -52,6 +52,7 @@ begin
                 __log__( rel_name + ': hashing' );
                 try
                     strm.assign( tFileStream.Create( source + rel_name, fmOpenRead ) );
+                    data.size := strm.get.size;
                     data.remote_hash := MD5Print( MD5Stream( strm.get ) );
                     __log__( rel_name + ': MD5Stream' );
                 except

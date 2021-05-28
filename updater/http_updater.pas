@@ -42,11 +42,14 @@ begin
     _api_params.Duplicates := dupIgnore;
     _http_call_interval := HTTP_CALL_INTERVAL;
     _last_call_dt := 0;
+    _http := THTTPSend.Create;
 end;
 
 destructor tHTTPUpdater.Destroy;
 begin
     _api_params.free;
+    _http.Free;
+    inherited;
 end;
 
 function tHttpUpdater.request( url: string; method: string; log_data: boolean; range_start, range_end: int64 ) : boolean;
