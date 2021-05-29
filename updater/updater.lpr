@@ -72,10 +72,10 @@ u := tGoogleDriveUpdater.create(o);
 try
     b := u.CheckUpdates = crOUTDATED;
     writeln( 'check result ', b );
-    {if b then
+    if b then
         b := u.FetchUpdates = frOK;
     writeln( 'fetch result ', b );
-    if b then
+    {if b then
         b := u.ApplyUpdates = arOK;
     writeln( 'apply result ', b );
     if b then

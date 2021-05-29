@@ -45,6 +45,8 @@ type
         function is_folder( const j: tJSONData ): boolean;
         function is_file( const j: tJSONData ): boolean;
 
+        function request_delay: word; override;
+
         // this method better be overridden with any kind of file list parsing instead of full tree walking
         function FetchRemoteFilesInfo: boolean; override;
     public
@@ -98,6 +100,11 @@ begin
     result := valid_json_object( j, GOOGLE_DRIVE_LIST_FILE_STRUCTURE, GOOGLE_DRIVE_LIST_FILE_STRUCTURE_TYPES );
 end;
 
+function tGoogleDriveUpdater.request_delay: word;
+begin
+    result := 1000;
+end ;
+
 function tGoogleDriveUpdater.FetchRemoteFilesInfo: boolean;
 (*
 {
@@ -140,7 +147,7 @@ function tGoogleDriveUpdater.FetchRemoteFilesInfo: boolean;
             else
                 _api_params.Remove( GOOGLE_DRIVE_NEXT_PAGE_TOKEN );
             http.Clear;
-            if api_request( '', 'GET', true ) then
+            if api_request( '', 'GET', rlAll ) then
                 begin
                     json.assign( GetJSON( http.Document ) );
                     if ( valid_json_object( json.get ) )
@@ -159,7 +166,7 @@ function tGoogleDriveUpdater.FetchRemoteFilesInfo: boolean;
                                             n := _map.add( path + obj.Strings[GOOGLE_DRIVE_LIST_NAME_FIELD] );
                                             data := _map.data[n];
                                             data.remote_hash := obj.Strings[GOOGLE_DRIVE_LIST_MD5_FIELD];
-                                            data.remote_path := obj.Strings[GOOGLE_DRIVE_LIST_LINK_FIELD];
+                                            data.remote_path := 'https://www.googleapis.com/drive/v3/files/' + obj.Strings[GOOGLE_DRIVE_LIST_ID_FIELD] + '?alt=media&supportsAllDrives=true&key=' + googledrive_secret.KEY;
                                             data.size := StrToInt64Def( obj.Strings[GOOGLE_DRIVE_LIST_SIZE_FIELD], 0 );
                                             _map.data[n] := data;
                                         end
