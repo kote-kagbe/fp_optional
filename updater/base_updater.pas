@@ -121,7 +121,6 @@ type
         procedure log_file_map;
 
         property aborted: boolean read _aborted;
-        property instance_id: string read _id;
         property options: tUpdaterOptions read _options;
     public
         constructor Create( const updater_options: tUpdaterOptions ); virtual; 
@@ -136,6 +135,8 @@ type
         procedure Abort;
         // removes *.old files and .storage
         function CleanUp( all: boolean = true ): boolean;
+
+        property instance_id: string read _id;
     end;
 
 implementation

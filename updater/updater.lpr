@@ -61,7 +61,9 @@ o.source := '1HHGu_grNVwwsUWIadA8eVd9cTjQiFhVl'; //'/Users/efimovvp/Documents/tm
 o.destination := '/Users/efimovvp/Documents/tmp/target';
 o.storage := '/Users/efimovvp/Documents/tmp/updates';
 {$else}
-
+o.source := '1HHGu_grNVwwsUWIadA8eVd9cTjQiFhVl'; //'T:\temp\updater\source';
+o.destination := 'T:\temp\updater\target';
+o.storage := 'T:\temp\updater\storage';
 {$endif}
 
 
@@ -89,6 +91,7 @@ u.free;
 //closefile(f);
 fs.free;
 
+readln;
 
 end.
 

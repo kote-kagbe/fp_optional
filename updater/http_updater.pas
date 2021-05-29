@@ -17,13 +17,16 @@ type
     private
         _http_call_interval: int64;
         _last_call_dt: tDateTime;
-    protected
         _http: THTTPSend;
         _api_url: string;
+    protected
         _api_params: tAPIParams;
 
         function request( url: string; method: string; log_data: boolean = true; range_start: int64 = 0; range_end: int64 = 0 ): boolean;
         function api_request( api_path: string; method: string; log_data: boolean = true; range_start: int64 = 0; range_end: int64 = 0 ): boolean;
+
+        property http: tHTTPSend read _http;
+        property api_url: string read _api_url write _api_url;
 
     public
         constructor Create( const updater_options: tUpdaterOptions ); override;
@@ -43,6 +46,7 @@ begin
     _http_call_interval := HTTP_CALL_INTERVAL;
     _last_call_dt := 0;
     _http := THTTPSend.Create;
+    _http.Protocol := '1.1';
 end;
 
 destructor tHTTPUpdater.Destroy;
