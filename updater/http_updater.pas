@@ -67,6 +67,8 @@ function tHttpUpdater.request( url: string; method: string; log_response: tRespo
 
     function _request( _url: string; redirection: byte ):boolean;
     begin
+        if aborted then
+            exit( false );
         if redirection > MAX_REDIRECTION_COUNT then
 	        begin
 	            __log__( 'too many redirections', lmtWARNING );
@@ -113,6 +115,7 @@ var
 begin
     while MilliSecondsBetween( now, _last_call_dt ) < request_delay do
         begin
+            __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
             delay := random( request_delay );
             __log__( Format( 'http call interval %d ms not reached, sleeping for %d ms', [http_call_interval, delay] ), lmtWARNING );
             sleep( delay );
@@ -159,6 +162,7 @@ begin
     result := true;
     expected := _map.KeyData[path].size;
     repeat
+        __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
         if request( _map.KeyData[path].remote_path, 'GET', rlErrors, offset, offset + FILE_OPERATION_CHUNK_SIZE - 1 ) then
             begin
                 current := http.Document.Size;

@@ -20,7 +20,7 @@ const
 
     GOOGLE_DRIVE_LIST_NAME_FIELD = 'name';
     GOOGLE_DRIVE_LIST_TYPE_FIELD = 'mimeType';
-    GOOGLE_DRIVE_LIST_LINK_FIELD = 'webContentLink';
+    //GOOGLE_DRIVE_LIST_LINK_FIELD = 'webContentLink';
     GOOGLE_DRIVE_LIST_MD5_FIELD = 'md5Checksum';
     GOOGLE_DRIVE_LIST_SIZE_FIELD = 'size'; //string!
     GOOGLE_DRIVE_LIST_LIST_FIELD = 'files';
@@ -29,8 +29,8 @@ const
 
     GOOGLE_DRIVE_LIST_FOLDER_STRUCTURE: array[0..2] of string = ( GOOGLE_DRIVE_LIST_NAME_FIELD, GOOGLE_DRIVE_LIST_TYPE_FIELD, GOOGLE_DRIVE_LIST_ID_FIELD );
     GOOGLE_DRIVE_LIST_FOLDER_STRUCTURE_TYPES: array[0..high(GOOGLE_DRIVE_LIST_FOLDER_STRUCTURE)] of TJSONtype = ( jtString, jtString, jtString );
-    GOOGLE_DRIVE_LIST_FILE_STRUCTURE: array[0..5] of string = ( GOOGLE_DRIVE_LIST_NAME_FIELD, GOOGLE_DRIVE_LIST_TYPE_FIELD, GOOGLE_DRIVE_LIST_LINK_FIELD, GOOGLE_DRIVE_LIST_MD5_FIELD, GOOGLE_DRIVE_LIST_SIZE_FIELD, GOOGLE_DRIVE_LIST_ID_FIELD );
-    GOOGLE_DRIVE_LIST_FILE_STRUCTURE_TYPES: array[0..high(GOOGLE_DRIVE_LIST_FILE_STRUCTURE)] of TJSONtype = ( jtString, jtString, jtString, jtString, jtString, jtString );
+    GOOGLE_DRIVE_LIST_FILE_STRUCTURE: array[0..4] of string = ( GOOGLE_DRIVE_LIST_NAME_FIELD, GOOGLE_DRIVE_LIST_TYPE_FIELD, {GOOGLE_DRIVE_LIST_LINK_FIELD,} GOOGLE_DRIVE_LIST_MD5_FIELD, GOOGLE_DRIVE_LIST_SIZE_FIELD, GOOGLE_DRIVE_LIST_ID_FIELD );
+    GOOGLE_DRIVE_LIST_FILE_STRUCTURE_TYPES: array[0..high(GOOGLE_DRIVE_LIST_FILE_STRUCTURE)] of TJSONtype = ( jtString, jtString, {jtString,} jtString, jtString, jtString );
 
 type
     tArrayOfString = array of string;
@@ -63,7 +63,7 @@ begin
     inherited Create( updater_options );
     api_url := GOOGLE_DRIVE_API;
     _api_params.add( 'key', googledrive_secret.KEY );
-    _api_params.add( 'fields', 'files(kind,name,md5Checksum,size,mimeType,webContentLink,id),kind,nextPageToken' );
+    _api_params.add( 'fields', 'files(kind,name,md5Checksum,size,mimeType,id),kind,nextPageToken' );
     //_api_params.Add( 'pageSize', '2' );
 end;
 
@@ -142,6 +142,7 @@ function tGoogleDriveUpdater.FetchRemoteFilesInfo: boolean;
         next_page_token := '';
         folders.assign( specialize tFPGMap<string,string>.Create );
         repeat
+            __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
             if not next_page_token.IsEmpty then
                 _api_params.AddOrSetData( GOOGLE_DRIVE_NEXT_PAGE_TOKEN, next_page_token )
             else
@@ -191,6 +192,7 @@ function tGoogleDriveUpdater.FetchRemoteFilesInfo: boolean;
         n := 0;
         while( result )and( n < folders.get.Count )do
             begin
+                __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
                 __log__( 'processing folder ' + path + folders.get.DATA[n] + DirectorySeparator );
                 result := tree_walker( folders.get.keys[n], path + folders.get.DATA[n] + DirectorySeparator );
                 n += 1;
