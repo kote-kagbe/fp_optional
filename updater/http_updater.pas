@@ -177,7 +177,10 @@ begin
                 current := http.Document.Size;
                 total += current;
                 offset += current;
-                destination.CopyFrom( http.Document, min( _http_params.data_chunk_size, http.Document.Size ) );
+                if _http_params.data_chunk_size > 0 then
+                    destination.CopyFrom( http.Document, min( _http_params.data_chunk_size, http.Document.Size ) )
+                else
+                    destination.CopyFrom( http.Document, http.Document.Size )
                 __report__( path, usFETCHING, __percent__( total, expected ) );
             end
         else
