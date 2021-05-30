@@ -16,6 +16,10 @@ const
 type
     tAPIParams = specialize tFPGMap<string,string>;
     tResponseLogging = ( rlNone, rlErrors, rlAll );
+    tHTTPParams = record
+        request_interval: word; // interval between remote calls
+        data_chunk_size: int64; // download data packet size
+    end ;
 
     tHTTPUpdater = class( tNetworkUpdater )
     private
@@ -24,11 +28,11 @@ type
         _api_url: string;
     protected
         _api_params: tAPIParams;
+        _http_params: tHTTPParams;
 
         function request( url: string; method: string; log_response: tResponseLogging = rlNone; range_start: int64 = 0; range_end: int64 = 0 ): boolean;
         function api_request( api_path: string; method: string; log_response: tResponseLogging = rlNone; range_start: int64 = 0; range_end: int64 = 0 ): boolean;
 
-        function request_delay: word; virtual;
         function fetch_request( const path: string; const range_start, range_end: int64 ): boolean; virtual;
 
         function FetchFile( const path: string; const destination: tStream ): boolean; override;
@@ -55,6 +59,8 @@ begin
     _last_call_dt := 0;
     _http := THTTPSend.Create;
     _http.Protocol := '1.1';
+    _http_params.request_interval := HTTP_CALL_INTERVAL;
+    _http_params.data_chunk_size := FILE_OPERATION_CHUNK_SIZE;
 end;
 
 destructor tHTTPUpdater.Destroy;
@@ -66,7 +72,9 @@ end;
 
 function tHttpUpdater.request( url: string; method: string; log_response: tResponseLogging; range_start, range_end: int64 ) : boolean;
 
-    function _request( _url: string; redirection: byte ):boolean;
+    function _request( _url: string; redirection: byte ): boolean;
+    var
+        delay: word;
     begin
         if aborted then
             exit( false );
@@ -75,9 +83,19 @@ function tHttpUpdater.request( url: string; method: string; log_response: tRespo
 	            __log__( 'too many redirections', lmtWARNING );
 	            exit( false );
 	        end;
+        while MilliSecondsBetween( now, _last_call_dt ) < _http_params.request_interval do
+            begin
+                __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
+                delay := random( _http_params.request_interval );
+                __log__( Format( 'http call interval %d ms not reached, sleeping for %d ms', [_http_params.request_interval, delay] ), lmtWARNING );
+                sleep( delay );
+            end;
         //_http.Headers.Add( 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9' );
         //_http.Headers.Add( 'accept-encoding: gzip, deflate, br' );
+        if aborted then
+            exit( false );
         result := _http.HTTPMethod( method, _url );
+        _last_call_dt := now;
 	    __log__( 'RESPONSE=' + IntToStr( _http.ResultCode ) + ' ' + IntToStr( _http.Document.Size ) + ' byte(s)' );
 	    if( log_response = rlAll )and( assigned( options.stream_log_processor ) )then
 	        options.stream_log_processor( _http.Document );
@@ -111,17 +129,7 @@ function tHttpUpdater.request( url: string; method: string; log_response: tRespo
 	        exit( false )
     end;
 
-var
-    delay: word;
 begin
-    while MilliSecondsBetween( now, _last_call_dt ) < request_delay do
-        begin
-            __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
-            delay := random( request_delay );
-            __log__( Format( 'http call interval %d ms not reached, sleeping for %d ms', [http_call_interval, delay] ), lmtWARNING );
-            sleep( delay );
-        end;
-    _last_call_dt := now;
     __log__( 'REQUEST=' + url );
     _http.Clear;
     _http.ProxyHost := proxy.address;
@@ -164,27 +172,22 @@ begin
     expected := _map.KeyData[path].size;
     repeat
         __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
-        if fetch_request( path, offset, offset + FILE_OPERATION_CHUNK_SIZE - 1 ) then
+        if fetch_request( path, offset, offset + _http_params.data_chunk_size - 1 ) then
             begin
                 current := http.Document.Size;
                 total += current;
-                offset += FILE_OPERATION_CHUNK_SIZE;
-                destination.CopyFrom( http.Document, min( FILE_OPERATION_CHUNK_SIZE, http.Document.Size ) );
+                offset += current;
+                destination.CopyFrom( http.Document, min( _http_params.data_chunk_size, http.Document.Size ) );
                 __report__( path, usFETCHING, __percent__( total, expected ) );
             end
         else
             __LOG_MESSAGE_ 'couldn''t make request', lmtERROR _SET_RESULT_ false _AND_BREAK__;
-    until( not result )or( current < FILE_OPERATION_CHUNK_SIZE )or( ( expected > 0 )and( total > expected ) );
+    until( not result )or( current < _http_params.data_chunk_size )or( ( expected > 0 )and( total >= expected ) );
     if ( expected > 0 )and( total > expected ) then
         begin
             __log__( 'download size exceeds expected', lmtERROR );
             result := false;
         end ;
-end ;
-
-function tHTTPUpdater.request_delay: word;
-begin
-    result := HTTP_CALL_INTERVAL;
 end ;
 
 function tHTTPUpdater.fetch_request( const path: string; const range_start, range_end: int64 ): boolean;

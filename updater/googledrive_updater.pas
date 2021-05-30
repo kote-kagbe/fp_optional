@@ -47,7 +47,6 @@ type
         function is_folder( const j: tJSONData ): boolean;
         function is_file( const j: tJSONData ): boolean;
 
-        function request_delay: word; override;
         function fetch_request ( const path: string; const range_start, range_end: int64 ) : boolean; override;
 
         // this method better be overridden with any kind of file list parsing instead of full tree walking
@@ -66,6 +65,8 @@ constructor tGoogleDriveUpdater.Create( const updater_options: tUpdaterOptions )
 begin
     inherited Create( updater_options );
     api_url := GOOGLE_DRIVE_API;
+    _http_params.data_chunk_size := 0; // trying to avoid google restricts for calls with downloading the full file
+    _http_params.request_interval := 1000;
     //_api_params.Add( 'pageSize', '2' );
 end;
 
@@ -102,16 +103,11 @@ begin
     result := valid_json_object( j, GOOGLE_DRIVE_LIST_FILE_STRUCTURE, GOOGLE_DRIVE_LIST_FILE_STRUCTURE_TYPES );
 end;
 
-function tGoogleDriveUpdater.request_delay: word;
-begin
-    result := 1000;
-end ;
-
 function tGoogleDriveUpdater.fetch_request ( const path: string; const range_start, range_end: int64 ) : boolean;
 begin
     //'https://www.googleapis.com/drive/v3/files/' + obj.Strings[GOOGLE_DRIVE_LIST_ID_FIELD] + '?alt=media&supportsAllDrives=true&key=' + googledrive_secret.KEY;
     http.Clear;
-    result := api_request( _map.KeyData[path].remote_path, 'GET', rlErrors, range_start, range_end );
+    result := api_request( _map.KeyData[path].remote_path, 'GET', rlErrors{, range_start, range_end} );
 end ;
 
 function tGoogleDriveUpdater.FetchFile( const path: string; const destination: tStream ): boolean;
