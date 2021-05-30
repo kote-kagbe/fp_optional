@@ -29,6 +29,7 @@ type
         function api_request( api_path: string; method: string; log_response: tResponseLogging = rlNone; range_start: int64 = 0; range_end: int64 = 0 ): boolean;
 
         function request_delay: word; virtual;
+        function fetch_request( const path: string; const range_start, range_end: int64 ): boolean; virtual;
 
         function FetchFile( const path: string; const destination: tStream ): boolean; override;
 
@@ -163,7 +164,7 @@ begin
     expected := _map.KeyData[path].size;
     repeat
         __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
-        if request( _map.KeyData[path].remote_path, 'GET', rlErrors, offset, offset + FILE_OPERATION_CHUNK_SIZE - 1 ) then
+        if fetch_request( path, offset, offset + FILE_OPERATION_CHUNK_SIZE - 1 ) then
             begin
                 current := http.Document.Size;
                 total += current;
@@ -184,6 +185,11 @@ end ;
 function tHTTPUpdater.request_delay: word;
 begin
     result := HTTP_CALL_INTERVAL;
+end ;
+
+function tHTTPUpdater.fetch_request( const path: string; const range_start, range_end: int64 ): boolean;
+begin
+    result := request( _map.KeyData[path].remote_path, 'GET', rlErrors, range_start, range_end );
 end ;
 
 initialization
