@@ -82,10 +82,7 @@ begin
                     // method := 
                 end
             else
-                begin
-                    __log__( path + ': couldn''t resolve download link' );
-                    exit( false );
-                end;
+                __LOG_MESSAGE_ path + ': couldn''t resolve download link', lmtERROR _SET_RESULT_ false _AND_EXIT__
         end;
     result := request( _map.KeyData[path].remote_path, method, rlErrors, range_start, range_end );
 end;
