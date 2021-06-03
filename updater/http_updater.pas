@@ -155,11 +155,10 @@ begin
     params := '';
     if _api_params.count > 0 then
         begin
-            params := '?';
             for n := 0 to _api_params.count - 1 do
                 params += '&' + _api_params.keys[n] + '=' + _api_params.data[n];
         end;
-    result := request( _api_url + api_path + params, method, log_response, range_start, range_end );
+    result := request( _api_url + api_path + '?' + params.SubString( 1 ), method, log_response, range_start, range_end );
 end;
 
 function tHttpUpdater.FetchFile( const path: string; const destination: tStream ): boolean;

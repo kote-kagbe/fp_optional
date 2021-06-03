@@ -21,6 +21,7 @@ var
     m: map;
     dt: tDatetime;
     fs:tfilestream;
+    s: string;
 
 procedure ilog( const message_text: string; const message_type: tLogMessageType = lmtMESSAGE );
 begin
@@ -67,7 +68,7 @@ o.storage := 'T:\temp\updater\storage';
 {$endif}
 //https://disk.yandex.ru/d/dlrlkSFG7BerVw
 
-
+(*
 u := tGoogleDriveUpdater.create(o);
 
 try
@@ -87,10 +88,13 @@ except on exc: Exception do
 end;
 
 u.free;
-
+*)
 
 //closefile(f);
 fs.free;
+
+s :='12345';
+writeln(s.substring(1));
 
 readln;
 
