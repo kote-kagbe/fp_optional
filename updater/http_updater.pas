@@ -76,13 +76,9 @@ function tHttpUpdater.request( url: string; method: string; log_response: tRespo
     var
         delay: word;
     begin
-        if aborted then
-            exit( false );
+        __CHECK_ABORTED_ _SET_RESULT_ false _AND_EXIT__
         if redirection > MAX_REDIRECTION_COUNT then
-	        begin
-	            __log__( 'too many redirections', lmtWARNING );
-	            exit( false );
-	        end;
+            __LOG_MESSAGE_ 'too many redirections', lmtWARNING _SET_RESULT_ false _AND_EXIT__
         while MilliSecondsBetween( now, _last_call_dt ) < _http_params.request_interval do
             begin
                 __CHECK_ABORTED_ _SET_RESULT_ false _AND_BREAK__
@@ -92,8 +88,7 @@ function tHttpUpdater.request( url: string; method: string; log_response: tRespo
             end;
         //_http.Headers.Add( 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9' );
         //_http.Headers.Add( 'accept-encoding: gzip, deflate, br' );
-        if aborted then
-            exit( false );
+        __CHECK_ABORTED_ _SET_RESULT_ false _AND_EXIT__
         result := _http.HTTPMethod( method, _url );
         _last_call_dt := now;
 	    __log__( 'RESPONSE=' + IntToStr( _http.ResultCode ) + ' ' + IntToStr( _http.Document.Size ) + ' byte(s)' );
@@ -113,10 +108,7 @@ function tHttpUpdater.request( url: string; method: string; log_response: tRespo
 	                    else if _http.Headers.IndexOfName( 'location' ) > -1 then
 	                        exit( _request( _http.Headers.Values['location'], redirection + 1 ) )
 	                    else
-	                        begin
-	                            __log__( 'got redirection code but no Location header found', lmtERROR );
-	                            exit( false );
-							end ;
+                            __LOG_MESSAGE_ 'got redirection code but no Location header found', lmtERROR _SET_RESULT_ false _AND_EXIT__
 					end ;
 	            else
                     begin
@@ -183,10 +175,7 @@ begin
             __LOG_MESSAGE_ 'couldn''t make request', lmtERROR _SET_RESULT_ false _AND_BREAK__;
     until( not result )or( current < _http_params.data_chunk_size )or( ( expected > 0 )and( total >= expected ) );
     if ( expected > 0 )and( total > expected ) then
-        begin
-            __log__( 'download size exceeds expected', lmtERROR );
-            result := false;
-        end ;
+        __LOG_MESSAGE_ 'download size exceeds expected', lmtERROR _SET_RESULT_ false _AND_EXIT__
 end ;
 
 function tHTTPUpdater.fetch_request( const path: string; const range_start, range_end: int64 ): boolean;

@@ -406,10 +406,7 @@ begin
                     source.reset;
                     FetchStorageFilesInfo;
                 except on exc: Exception do
-                    begin
-                        __log__( 'distribution processing failed: ' + exc.tostring );
-                        exit( arERROR );
-                    end;  
+                    __LOG_MESSAGE_ 'distribution processing failed: ' + exc.tostring _SET_RESULT_ arERROR _AND_EXIT__
                 end;              
             end;
         for n := 0 to _map.count - 1 do
