@@ -65,6 +65,7 @@ o.source := '1HHGu_grNVwwsUWIadA8eVd9cTjQiFhVl'; //'T:\temp\updater\source';
 o.destination := 'T:\temp\updater\target';
 o.storage := 'T:\temp\updater\storage';
 {$endif}
+//https://disk.yandex.ru/d/dlrlkSFG7BerVw
 
 
 u := tGoogleDriveUpdater.create(o);

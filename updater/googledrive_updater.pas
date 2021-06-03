@@ -7,7 +7,7 @@ unit googledrive_updater;
 
 interface
 
-uses base_updater, http_updater, googledrive_secret,
+uses base_updater, http_updater, json_api_updater, googledrive_secret,
      fpjson, jsonparser, sysutils, classes, fgl,
      scope_container;
 
@@ -33,17 +33,10 @@ const
     GOOGLE_DRIVE_LIST_FILE_STRUCTURE_TYPES: array[0..high(GOOGLE_DRIVE_LIST_FILE_STRUCTURE)] of TJSONtype = ( jtString, jtString, {jtString,} jtString, jtString, jtString );
 
 type
-    tArrayOfString = array of string;
-    tJSONTypesArray = array of tJSONType;
-
     { tGoogleDriveUpdater }
 
-    tGoogleDriveUpdater = class( tHTTPUpdater )
+    tGoogleDriveUpdater = class( tJSONAPIUpdater )
     protected
-
-        generic function valid_json <T:tJSONData> ( const j: tJSONData ): boolean;
-        function valid_json_object( const j: tJSONData; const fields: tArrayOfString = nil; field_types: tJSONTypesArray = nil ): boolean;
-        function valid_json_array( const j: tJSONData ): boolean;
         function is_folder( const j: tJSONData ): boolean;
         function is_file( const j: tJSONData ): boolean;
 
@@ -68,29 +61,6 @@ begin
     _http_params.data_chunk_size := 0; // trying to avoid google restricts for calls with downloading the full file
     _http_params.request_interval := 1000;
     //_api_params.Add( 'pageSize', '2' );
-end;
-
-generic function tGoogleDriveUpdater.valid_json<T>( const j: tJSONData ): boolean;
-begin
-    result := ( j <> nil ) and ( j is T ) and ( not( j.IsNull ) );
-end;
-
-function tGoogleDriveUpdater.valid_json_object( const j: tJSONData; const fields: tArrayOfString; field_types: tJSONTypesArray ): boolean;
-var
-    n: integer;
-begin
-    if( ( fields <> nil ) xor ( field_types <> nil ) )or( length( fields ) <> length( field_types ) ) then
-        raise Exception.Create( 'Fields and types must be defined either both or none' );
-    result := specialize valid_json<tJSONObject>( j );
-    if( result )and( length( fields ) > 0 )then
-        for n := 0 to high( fields ) do
-            if( ( j as tJSONObject ).Find( fields[n] ) = nil )or( ( j as tJSONObject ).Find( fields[n] ).JSONType <> field_types[n] ) then
-                exit( false );
-end;
-
-function tGoogleDriveUpdater.valid_json_array( const j: tJSONData ): boolean;
-begin
-    result := specialize valid_json<tJSONArray>( j );
 end;
 
 function tGoogleDriveUpdater.is_folder( const j: tJSONData ): boolean;
