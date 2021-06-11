@@ -333,7 +333,7 @@ begin
     if( _map.count = 0 )and(( not FillMap )or( _map.count = 0 ))then
         exit( crERROR );
     for n := 0 to _map.count.size - 1 do
-        if _map.data[n].NeedUpdate then
+        if( _map.keys[n] <> options.distribution )and( _map.data[n].NeedUpdate )then
             exit( crOUTDATED );
     result := crUPTODATE;
 end;
